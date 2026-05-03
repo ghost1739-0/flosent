@@ -49,21 +49,33 @@ export async function execute(interaction: Interaction): Promise<void> {
           await interaction.deferReply({ ephemeral: true });
 
           const displayName = interaction.member && 'displayName' in interaction.member ? (interaction.member as any).displayName : interaction.user.username;
+          const parts = customId.split('_');
+          const sessionId = Number(parts[2]);
+          const session = client.db.getAktiflikSessionByMessageId(interaction.message.id);
 
-          // Prevent multiple clicks per day
-          try {
-            const already = client.db.hasCheckedAktiflikToday(interaction.user.id);
-            if (already) {
-              await interaction.editReply({ content: '⚠️ Zaten katıldın.' });
-              return;
-            }
-          } catch (dbErr) {
-            // if DB check fails, log and continue to avoid blocking users
-            // eslint-disable-next-line no-console
-            console.error('Aktiflik DB check hatası:', dbErr);
+          if (!session || session.active !== 1 || session.id !== sessionId) {
+            await interaction.editReply({ content: '⚠️ Bu aktiflik oturumu kapandi.' });
+            return;
           }
 
-          // Record click
+          if (new Date(session.ends_at).getTime() <= Date.now()) {
+            await interaction.editReply({ content: '⚠️ Bu aktiflik oturumu suresi doldu.' });
+            return;
+          }
+
+          const alreadyInSession = client.db.hasJoinedAktiflikSession(sessionId, interaction.user.id);
+          if (alreadyInSession) {
+            await interaction.editReply({ content: '⚠️ Zaten katıldın.' });
+            return;
+          }
+
+          const inserted = client.db.addAktiflikSessionParticipant(sessionId, interaction.user.id, displayName);
+          if (!inserted) {
+            await interaction.editReply({ content: '⚠️ Zaten katıldın.' });
+            return;
+          }
+
+          // Record click in daily log for audit
           client.db.addAktiflikLog(interaction.user.id, displayName);
           client.db.addBotLog('aktiflik_kontrol', interaction.user.id, displayName);
 
@@ -84,30 +96,36 @@ export async function execute(interaction: Interaction): Promise<void> {
           const message = interaction.message;
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
-            const embed = EmbedBuilder.from(currentEmbed);
-            const fields = embed.data.fields ?? [];
-            const participantFieldIdx = fields.findIndex(f => f.name === '👥 Katılımcılar');
-            let participantValue = 'Katılımcı yok';
-            if (participantFieldIdx !== -1) {
-              participantValue = fields[participantFieldIdx].value || 'Katılımcı yok';
-            }
-            const newValue = participantValue === 'Katılımcı yok' ? `${displayName} - ${turkishDate()}` : `${participantValue}\n${displayName} - ${turkishDate()}`;
+            const participants = client.db.getAktiflikSessionParticipants(sessionId);
+            const role = interaction.guild?.roles.cache.get('1500135055207567590');
+            const total = role?.members.size ?? 0;
+            const names = participants
+              .map((p) => `✅ ${p.username}`)
+              .join('\n');
+            const participantValue = names.length > 1000 ? `${names.slice(0, 980)}\n...` : (names || 'Yok');
 
-            if (participantFieldIdx !== -1) {
-              fields[participantFieldIdx].value = newValue;
-            } else {
-              fields.push({ name: '👥 Katılımcılar', value: newValue, inline: false });
-            }
-
-            const newEmbed = EmbedBuilder.from(currentEmbed).setFields(...fields);
+            const newEmbed = EmbedBuilder.from(currentEmbed).setFields(
+              {
+                name: '📊 Katilim',
+                value: `${participants.length}/${total}`,
+                inline: false,
+              },
+              {
+                name: `✅ Katilanlar (${participants.length})`,
+                value: participantValue,
+                inline: false,
+              }
+            );
             await message.edit({ embeds: [newEmbed] });
           }
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('Aktiflik button hatası:', error);
-          await interaction.editReply({
-            content: '❌ Bir hata oluştu.',
-          });
+          if (interaction.deferred || interaction.replied) {
+            await interaction.editReply({
+              content: '❌ Bir hata oluştu.',
+            });
+          }
         }
         return;
       }
