@@ -133,7 +133,7 @@ async function finalizeAktiflikSession(
 
   await guild.members.fetch();
   const role = guild.roles.cache.get(AKTIFLIK_ROLE_ID);
-  const roleMembers = role ? Array.from(role.members.values()) : [];
+  const roleMembers = role ? Array.from(role.members.filter(m => m.roles.cache.has(AKTIFLIK_ROLE_ID)).values()) : [];
 
   const participants = client.db.getAktiflikSessionParticipants(sessionId);
   const joinedIds = new Set(participants.map((p) => p.id));
@@ -222,7 +222,9 @@ const command: BotCommand = {
 
       await guild.members.fetch();
       const role = guild.roles.cache.get(AKTIFLIK_ROLE_ID);
-      const roleMembersCount = role ? role.members.size : 0;
+      // Filter members to ensure they actually have the role in this guild context
+      const roleMembers = role ? role.members.filter(m => m.roles.cache.has(AKTIFLIK_ROLE_ID)) : null;
+      const roleMembersCount = roleMembers ? roleMembers.size : 0;
 
       const embed = new EmbedBuilder()
         .setTitle('✅ Aktiflik Kontrolü')
@@ -268,18 +270,6 @@ const command: BotCommand = {
             console.error('Aktiflik kapatma hatasi:', error);
           });
       }, durationSeconds * 1000);
-
-      // Send DM to all members with AKTIFLIK_ROLE_ID
-      if (role) {
-        const members = role.members;
-        for (const [, member] of members) {
-          member.send(
-            '📢 Aktiflik kontrolü başladı! Aktifliğini onaylamak için sunucuya gel ve butona tıkla.'
-          ).catch(() => {
-            // Silently skip if DM fails
-          });
-        }
-      }
 
       client.db.addBotLog(
         'aktiflik_kontrolu_baslatildi',
