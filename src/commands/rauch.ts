@@ -29,7 +29,7 @@ const command: BotCommand = {
       }
 
       const messageChannel = targetChannel as { send: (content: string) => Promise<unknown> };
-      await messageChannel.send('taşaklarım kokuyor');
+      await messageChannel.send('tamam ben güzel bir insanım');
 
       await interaction.editReply({ content: '✅ Mesaj gönderildi.' });
     } catch (error) {
