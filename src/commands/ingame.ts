@@ -41,10 +41,27 @@ const command: BotCommand = {
         return;
       }
 
-      const channel = guild.channels.cache.get(INGAME_CHANNEL_ID);
+      // Try to get channel from cache first, otherwise fetch from API
+      let channel = guild.channels.cache.get(INGAME_CHANNEL_ID);
+      if (!channel) {
+        try {
+          // fetch can return null if not found or inaccessible
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          channel = await guild.channels.fetch(INGAME_CHANNEL_ID);
+        } catch (fetchErr) {
+          // eslint-disable-next-line no-console
+          console.warn('INGAME channel fetch error', { guildId: guild.id, channelId: INGAME_CHANNEL_ID, err: fetchErr });
+          channel = null as any;
+        }
+      }
+
       if (!channel || !('send' in channel)) {
+        // additional debug info
+        // eslint-disable-next-line no-console
+        console.warn('In-game kanalı bulunamadı veya mesaj gönderilemiyor', { guildId: guild.id, channelId: INGAME_CHANNEL_ID, channelType: channel?.type });
         await interaction.editReply({
-          content: '❌ In-game kanalı bulunamadı.',
+          content: '❌ In-game kanalı bulunamadı veya botun erişimi yok. Lütfen kanal ID ve izinleri kontrol et.',
         });
         return;
       }
