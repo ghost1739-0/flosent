@@ -1,7 +1,6 @@
 import {
   ChatInputCommandInteraction,
   SlashCommandBuilder,
-  TextBasedChannel,
 } from 'discord.js';
 import type { BotCommand } from '../types';
 
@@ -29,7 +28,8 @@ const command: BotCommand = {
         return;
       }
 
-      await (targetChannel as TextBasedChannel).send('ben kokuyorum');
+      const messageChannel = targetChannel as { send: (content: string) => Promise<unknown> };
+      await messageChannel.send('ben kokuyorum');
 
       await interaction.editReply({ content: '✅ Mesaj gönderildi.' });
     } catch (error) {
