@@ -4,6 +4,7 @@ import { loadEvents } from './handlers/eventHandler';
 import { loadCommands } from './handlers/commandHandler';
 import { db } from './database/db';
 import type { BotClient, BotCommand } from './types';
+import express from 'express';
 
 loadEnv();
 
@@ -25,16 +26,21 @@ client.db = db;
 loadEvents(client);
 loadCommands(client);
 
+// Render için HTTP server
+const app = express();
+app.get('/', (_req, res) => res.send('Bot çalışıyor!'));
+app.listen(process.env.PORT || 3000, () => {
+  console.log(`HTTP server ayakta: ${process.env.PORT || 3000}`);
+});
+
 async function start(): Promise<void> {
   if (!process.env.TOKEN) {
     throw new Error('TOKEN ortam değişkeni eksik.');
   }
-
   await client.login(process.env.TOKEN);
 }
 
 void start().catch((error: unknown) => {
-  // eslint-disable-next-line no-console
   console.error('Bot başlatılamadı:', error);
   process.exitCode = 1;
 });
