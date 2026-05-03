@@ -9,7 +9,7 @@ import {
 import type { BotCommand, BotClient } from '../types';
 import { turkishDate } from '../utils/helpers';
 
-const AKTIFLIK_CHANNEL_ID = '1500137490042851450';
+const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
 const AKTIFLIK_ROLE_ID = '1500135055207567590';
 
 const command: BotCommand = {
