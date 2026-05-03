@@ -89,7 +89,7 @@ async function applyPenaltyForMissedMember(
     console.error('Aktiflik rol uygulama hatasi:', error);
   }
 
-  const penaltyChannel = guild.channels.cache.get(reasonChannelId);
+  const penaltyChannel = guild.channels.cache.get(reasonChannelId) ?? await guild.channels.fetch(reasonChannelId).catch(() => null);
   if (penaltyChannel && 'send' in penaltyChannel) {
     let roleText = 'ceza rolu guncellenemedi';
     if (status.consecutive_misses === 1) {
@@ -119,7 +119,7 @@ async function finalizeAktiflikSession(
     return;
   }
 
-  const channel = guild.channels.cache.get(channelId);
+  const channel = guild.channels.cache.get(channelId) ?? await guild.channels.fetch(channelId).catch(() => null);
   if (!channel || !('messages' in channel)) {
     client.db.closeAktiflikSession(sessionId);
     return;
@@ -212,7 +212,7 @@ const command: BotCommand = {
         return;
       }
 
-      const channel = guild.channels.cache.get(AKTIFLIK_CHANNEL_ID);
+      const channel = guild.channels.cache.get(AKTIFLIK_CHANNEL_ID) ?? await guild.channels.fetch(AKTIFLIK_CHANNEL_ID).catch(() => null);
       if (!channel || !('send' in channel)) {
         await interaction.editReply({
           content: '❌ Aktiflik kanalı bulunamadı.',
@@ -260,17 +260,24 @@ const command: BotCommand = {
       const activeRow = new ActionRowBuilder<ButtonBuilder>().addComponents(activeButton);
       await message.edit({ components: [activeRow] });
 
+      // Start timeout immediately; do not delay due to DM operations
+      setTimeout(() => {
+        finalizeAktiflikSession(client, guild, sessionId, message.id, message.channelId)
+          .catch((error) => {
+            // eslint-disable-next-line no-console
+            console.error('Aktiflik kapatma hatasi:', error);
+          });
+      }, durationSeconds * 1000);
+
       // Send DM to all members with AKTIFLIK_ROLE_ID
       if (role) {
         const members = role.members;
         for (const [, member] of members) {
-          try {
-            await member.send(
-              '📢 Aktiflik kontrolü başladı! Aktifliğini onaylamak için sunucuya gel ve butona tıkla.'
-            );
-          } catch {
+          member.send(
+            '📢 Aktiflik kontrolü başladı! Aktifliğini onaylamak için sunucuya gel ve butona tıkla.'
+          ).catch(() => {
             // Silently skip if DM fails
-          }
+          });
         }
       }
 
@@ -284,13 +291,6 @@ const command: BotCommand = {
         content: `✅ Aktiflik kontrolü başlatıldı! Sure: ${durationSeconds} saniye.`,
       });
 
-      setTimeout(() => {
-        finalizeAktiflikSession(client, guild, sessionId, message.id, message.channelId)
-          .catch((error) => {
-            // eslint-disable-next-line no-console
-            console.error('Aktiflik kapatma hatasi:', error);
-          });
-      }, durationSeconds * 1000);
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Aktiflik komutu hatası:', error);
