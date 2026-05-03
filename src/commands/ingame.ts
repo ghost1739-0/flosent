@@ -10,7 +10,7 @@ import {
 import type { BotCommand, BotClient } from '../types';
 import { turkishDate } from '../utils/helpers';
 
-const INGAME_CHANNEL_ID = '1500137490042851451';
+const INGAME_CHANNEL_ID = '1500135056637689939';
 const YETKILI_ROLE_ID = '1500135055207567590'; // High rank role
 
 const command: BotCommand = {
