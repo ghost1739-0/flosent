@@ -50,7 +50,20 @@ export async function execute(interaction: Interaction): Promise<void> {
 
           const displayName = interaction.member && 'displayName' in interaction.member ? (interaction.member as any).displayName : interaction.user.username;
 
-          // Record click (no per-user limit)
+          // Prevent multiple clicks per day
+          try {
+            const already = client.db.hasCheckedAktiflikToday(interaction.user.id);
+            if (already) {
+              await interaction.editReply({ content: '⚠️ Zaten katıldın.' });
+              return;
+            }
+          } catch (dbErr) {
+            // if DB check fails, log and continue to avoid blocking users
+            // eslint-disable-next-line no-console
+            console.error('Aktiflik DB check hatası:', dbErr);
+          }
+
+          // Record click
           client.db.addAktiflikLog(interaction.user.id, displayName);
           client.db.addBotLog('aktiflik_kontrol', interaction.user.id, displayName);
 
