@@ -25,7 +25,7 @@ function formatMemberLines(members: GuildMember[], icon: string): string {
 
   const lines: string[] = [];
   for (const member of members) {
-    const line = `${icon} ${member.displayName}`;
+    const line = `${icon} <@${member.id}>`;
     const candidate = [...lines, line].join('\n');
     if (candidate.length > 1000) {
       break;
@@ -34,7 +34,7 @@ function formatMemberLines(members: GuildMember[], icon: string): string {
   }
 
   if (members.length > lines.length) {
-    lines.push(`... ve ${members.length - lines.length} kisi daha`);
+    lines.push(`... ve ${members.length - lines.length} kişi daha`);
   }
 
   return lines.join('\n');
@@ -151,31 +151,31 @@ async function finalizeAktiflikSession(
 
   const currentEmbed = message.embeds[0];
   const closedEmbed = (currentEmbed ? EmbedBuilder.from(currentEmbed) : new EmbedBuilder())
-    .setTitle('✅ Aktiflik Kontrolu Kapatildi')
-    .setDescription('Sure doldu, aktiflik onaylama kapatildi.')
+    .setTitle('✅ Aktiflik Kontrolü Sonuçları')
+    .setDescription('Aktiflik kontrolü süresi doldu ve oturum kapatıldı.')
     .setFields(
       {
-        name: '📊 Katilim',
-        value: `${joinedMembers.length}/${roleMembers.length}`,
+        name: '📊 Katılım Özeti',
+        value: `Toplam: **${roleMembers.length}**\nKatılan: **${joinedMembers.length}**\nKatılmayan: **${missedMembers.length}**`,
         inline: false,
       },
       {
-        name: `✅ Katilanlar (${joinedMembers.length})`,
+        name: `✅ Katılanlar (${joinedMembers.length})`,
         value: formatMemberLines(joinedMembers, '✅'),
-        inline: false,
+        inline: true,
       },
       {
-        name: `❌ Katilmayanlar (${missedMembers.length})`,
+        name: `❌ Katılmayanlar (${missedMembers.length})`,
         value: formatMemberLines(missedMembers, '❌'),
-        inline: false,
+        inline: true,
       }
     )
-    .setColor('Red')
-    .setFooter({ text: `Kapatildi — ${turkishDate()}` });
+    .setColor('DarkGreen')
+    .setFooter({ text: `Bitiş: ${turkishDate()}` });
 
   const disabledButton = new ButtonBuilder()
     .setCustomId(`aktiflik_kapali_${sessionId}`)
-    .setLabel('✅ Aktiflik Kapandi')
+    .setLabel('Süre Doldu (Kapatıldı)')
     .setStyle(ButtonStyle.Secondary)
     .setDisabled(true);
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);

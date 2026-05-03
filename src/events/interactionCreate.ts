@@ -46,7 +46,7 @@ export async function execute(interaction: Interaction): Promise<void> {
       // Aktiflik onayla button
       if (customId.startsWith('aktiflik_onayla')) {
         try {
-          await interaction.deferReply({ ephemeral: true });
+          await interaction.deferUpdate();
 
           const displayName = interaction.member && 'displayName' in interaction.member ? (interaction.member as any).displayName : interaction.user.username;
           const parts = customId.split('_');
@@ -54,24 +54,24 @@ export async function execute(interaction: Interaction): Promise<void> {
           const session = client.db.getAktiflikSessionByMessageId(interaction.message.id);
 
           if (!session || session.active !== 1 || session.id !== sessionId) {
-            await interaction.editReply({ content: '⚠️ Bu aktiflik oturumu kapandi.' });
+            await interaction.followUp({ content: '⚠️ Bu aktiflik oturumu kapandi.', ephemeral: true });
             return;
           }
 
           if (new Date(session.ends_at).getTime() <= Date.now()) {
-            await interaction.editReply({ content: '⚠️ Bu aktiflik oturumu suresi doldu.' });
+            await interaction.followUp({ content: '⚠️ Bu aktiflik oturumu suresi doldu.', ephemeral: true });
             return;
           }
 
           const alreadyInSession = client.db.hasJoinedAktiflikSession(sessionId, interaction.user.id);
           if (alreadyInSession) {
-            await interaction.editReply({ content: '⚠️ Zaten katıldın.' });
+            await interaction.followUp({ content: '⚠️ Zaten katıldın.', ephemeral: true });
             return;
           }
 
           const inserted = client.db.addAktiflikSessionParticipant(sessionId, interaction.user.id, displayName);
           if (!inserted) {
-            await interaction.editReply({ content: '⚠️ Zaten katıldın.' });
+            await interaction.followUp({ content: '⚠️ Zaten katıldın.', ephemeral: true });
             return;
           }
 
@@ -79,17 +79,9 @@ export async function execute(interaction: Interaction): Promise<void> {
           client.db.addAktiflikLog(interaction.user.id, displayName);
           client.db.addBotLog('aktiflik_kontrol', interaction.user.id, displayName);
 
-          // Public notification with @everyone
-          // const messageChannel = interaction.message.channel;
-          // if (messageChannel && 'send' in messageChannel) {
-          //   await messageChannel.send({
-          //     content: `@everyone ${displayName} aktifliğini onayladı.`,
-          //     allowedMentions: { parse: ['everyone'] },
-          //   });
-          // } // TODO: Re-enable @everyone notification later
-
-          await interaction.editReply({
+          await interaction.followUp({
             content: '✅ Aktifliğin onaylandı!',
+            ephemeral: true
           });
 
           // Update the embed to show new participant
