@@ -118,26 +118,36 @@ async function finalizeAktiflikSession(
   messageId: string,
   channelId: string
 ): Promise<void> {
+  console.log(`[Aktiflik] finalizeAktiflikSession basladi. Session: ${sessionId}, Message: ${messageId}`);
   const session = client.db.getAktiflikSessionByMessageId(messageId);
   if (!session || session.id !== sessionId || session.active !== 1) {
+    console.log(`[Aktiflik] Oturum bulunamadi veya zaten kapali. Active: ${session?.active}`);
     return;
   }
 
   const channel = guild.channels.cache.get(channelId) ?? await guild.channels.fetch(channelId).catch(() => null);
   if (!channel || !('messages' in channel)) {
+    console.log(`[Aktiflik] Kanal bulunamadi: ${channelId}`);
     client.db.closeAktiflikSession(sessionId);
     return;
   }
 
   const message = await channel.messages.fetch(messageId).catch(() => null);
   if (!message) {
+    console.log(`[Aktiflik] Mesaj bulunamadi: ${messageId}`);
     client.db.closeAktiflikSession(sessionId);
     return;
   }
 
-  await guild.members.fetch();
+  await guild.members.fetch().catch(err => console.error('[Aktiflik] Member fetch hatasi:', err));
   const role = guild.roles.cache.get(AKTIFLIK_ROLE_ID);
-  const roleMembers = role ? Array.from(role.members.filter(m => m.roles.cache.has(AKTIFLIK_ROLE_ID)).values()) : [];
+  
+  if (!role) {
+    console.log(`[Aktiflik] Rol bulunamadi: ${AKTIFLIK_ROLE_ID}`);
+  }
+
+  const roleMembers = role ? Array.from(role.members.values()) : [];
+  console.log(`[Aktiflik] Roldeki toplam kisi (fetch sonrasi): ${roleMembers.length}`);
 
   const participants = client.db.getAktiflikSessionParticipants(sessionId);
   const joinedIds = new Set(participants.map((p) => p.id));
@@ -145,11 +155,14 @@ async function finalizeAktiflikSession(
   const joinedMembers = roleMembers.filter((m) => joinedIds.has(m.id));
   const missedMembers = roleMembers.filter((m) => !joinedIds.has(m.id));
 
+  console.log(`[Aktiflik] Katilan: ${joinedMembers.length}, Katilmayan: ${missedMembers.length}`);
+
   for (const member of joinedMembers) {
     client.db.markAktiflikJoined(member.id, member.displayName);
   }
 
   for (const member of missedMembers) {
+    console.log(`[Aktiflik] Ceza uygulaniyor: ${member.displayName} (${member.id})`);
     await applyPenaltyForMissedMember(member, client, guild, AKTIFLIK_PENALTY_CHANNEL_ID);
   }
 
