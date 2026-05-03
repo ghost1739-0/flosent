@@ -1,5 +1,6 @@
-import { Interaction, EmbedBuilder } from 'discord.js';
+import { Interaction, EmbedBuilder, Guild, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import type { BotEvent, BotClient } from '../types';
+import { finalizeAktiflikSession } from '../commands/aktiflik';
 
 const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
 const FARMVER_CHANNEL_ID = '1500452813942030407';
@@ -109,6 +110,19 @@ export async function execute(interaction: Interaction): Promise<void> {
               }
             );
             await message.edit({ embeds: [newEmbed] });
+
+            // Auto-close if 20 people joined
+            if (participants.length >= 20 && interaction.guild) {
+              // We don't want to await this because it might take time to process penalties
+              // but we want to close the session immediately in DB to prevent more clicks
+              finalizeAktiflikSession(
+                client,
+                interaction.guild,
+                sessionId,
+                message.id,
+                message.channelId
+              ).catch(err => console.error('[Aktiflik] Auto-close error:', err));
+            }
           }
         } catch (error) {
           // eslint-disable-next-line no-console
@@ -149,6 +163,49 @@ export async function execute(interaction: Interaction): Promise<void> {
             await interaction.editReply({
               content: '⚠️ Oturum dolu! (20/20)',
             });
+
+            // Auto-close logic for In-Game
+            const message = interaction.message;
+            const currentEmbed = message.embeds[0];
+            if (currentEmbed) {
+              const participantList = participants
+                .map((p, i) => `${i + 1}. ${p.username}`)
+                .join('\n') || 'Katılımcı yok';
+
+              const closedEmbed = EmbedBuilder.from(currentEmbed)
+                .setTitle('🎮 In-Game Oturumu - KAPANDI')
+                .setDescription('Oturum 20 kişiye ulaştığı için otomatik olarak kapandı.')
+                .setFields(
+                  {
+                    name: '👥 Katılımcılar',
+                    value: participantList,
+                    inline: false,
+                  },
+                  {
+                    name: '📊 Toplam',
+                    value: `Katılımcı Sayısı: 20/20 (DOLU)`,
+                    inline: false,
+                  }
+                )
+                .setColor('Red');
+
+              const disabledJoin = new ButtonBuilder()
+                .setCustomId('ingame_katil_disabled')
+                .setLabel('🎮 DOLU')
+                .setStyle(ButtonStyle.Success)
+                .setDisabled(true);
+
+              const disabledLeave = new ButtonBuilder()
+                .setCustomId('ingame_ayril_disabled')
+                .setLabel('❌ Ayrıl')
+                .setStyle(ButtonStyle.Danger)
+                .setDisabled(true);
+
+              const disabledRow = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledJoin, disabledLeave);
+
+              await message.edit({ embeds: [closedEmbed], components: [disabledRow] });
+              client.db.closeIngameSession(sessionId);
+            }
             return;
           }
 

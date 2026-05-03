@@ -111,13 +111,13 @@ async function applyPenaltyForMissedMember(
   }
 }
 
-async function finalizeAktiflikSession(
+export const finalizeAktiflikSession = async (
   client: BotClient,
   guild: Guild,
   sessionId: number,
   messageId: string,
   channelId: string
-): Promise<void> {
+): Promise<void> => {
   console.log(`[Aktiflik] finalizeAktiflikSession basladi. Session: ${sessionId}, Message: ${messageId}`);
   const session = client.db.getAktiflikSessionByMessageId(messageId);
   if (!session || session.id !== sessionId || session.active !== 1) {
@@ -208,14 +208,6 @@ const command: BotCommand = {
   data: new SlashCommandBuilder()
     .setName('aktiflik')
     .setDescription('Aktiflik kontrolü başlatır')
-    .addIntegerOption((option) =>
-      option
-        .setName('sure')
-        .setDescription('Kac saniye aktiflik acik kalsin? (ornek: 8)')
-        .setMinValue(5)
-        .setMaxValue(3600)
-        .setRequired(false)
-    )
     .setDefaultMemberPermissions(8), // Administrator
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -223,7 +215,6 @@ const command: BotCommand = {
       await interaction.deferReply({ ephemeral: true });
       const client = interaction.client as BotClient;
       const guild = interaction.guild;
-      const durationSeconds = interaction.options.getInteger('sure') ?? 60;
 
       if (!guild) {
         await interaction.editReply({
@@ -248,7 +239,7 @@ const command: BotCommand = {
 
       const embed = new EmbedBuilder()
         .setTitle('✅ Aktiflik Kontrolü')
-        .setDescription(`Aşağıdaki butona tıklayarak aktifliğinizi onaylayın!\nKalan sure: ${durationSeconds} saniye`)
+        .setDescription(`Aşağıdaki butona tıklayarak aktifliğinizi onaylayın!\n\n**Hedef:** 20 Katılımcı (20 kişi dolduğunda sistem kapanır)`)
         .setColor('Green')
         .addFields({ name: '📊 Katilim', value: `0/${roleMembersCount}`, inline: false })
         .setFooter({ text: `Aktiflik kontrolü — ${turkishDate()}` });
@@ -261,17 +252,16 @@ const command: BotCommand = {
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
 
       const message = await channel.send({
-        // content: '@everyone', // TODO: Re-enable @everyone mention later
         embeds: [embed],
         components: [row],
-        // allowedMentions: { parse: ['everyone'] },
       });
 
+      // No more DURATION limit, 24 hours expiry in DB just for safety
       const sessionId = client.db.createAktiflikSession(
         message.id,
         message.channelId,
         AKTIFLIK_ROLE_ID,
-        durationSeconds,
+        86400, // 24 hours safety limit
         interaction.user.id
       );
 
@@ -282,15 +272,6 @@ const command: BotCommand = {
       const activeRow = new ActionRowBuilder<ButtonBuilder>().addComponents(activeButton);
       await message.edit({ components: [activeRow] });
 
-      // Start timeout immediately; do not delay due to DM operations
-      setTimeout(() => {
-        finalizeAktiflikSession(client, guild, sessionId, message.id, message.channelId)
-          .catch((error) => {
-            // eslint-disable-next-line no-console
-            console.error('Aktiflik kapatma hatasi:', error);
-          });
-      }, durationSeconds * 1000);
-
       client.db.addBotLog(
         'aktiflik_kontrolu_baslatildi',
         interaction.user.id,
@@ -298,7 +279,7 @@ const command: BotCommand = {
       );
 
       await interaction.editReply({
-        content: `✅ Aktiflik kontrolü başlatıldı! Sure: ${durationSeconds} saniye.`,
+        content: `✅ Aktiflik kontrolü başlatıldı! 20 kişi katıldığında otomatik kapanacak.`,
       });
 
     } catch (error) {
