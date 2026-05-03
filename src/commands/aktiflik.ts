@@ -208,6 +208,14 @@ const command: BotCommand = {
   data: new SlashCommandBuilder()
     .setName('aktiflik')
     .setDescription('Aktiflik kontrolü başlatır')
+    .addIntegerOption((option) =>
+      option
+        .setName('saat')
+        .setDescription('Kac saat aktiflik acik kalsin?')
+        .setMinValue(1)
+        .setMaxValue(24)
+        .setRequired(true)
+    )
     .setDefaultMemberPermissions(8), // Administrator
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -215,6 +223,8 @@ const command: BotCommand = {
       await interaction.deferReply({ ephemeral: true });
       const client = interaction.client as BotClient;
       const guild = interaction.guild;
+      const hours = interaction.options.getInteger('saat', true);
+      const durationMs = hours * 60 * 60 * 1000;
 
       if (!guild) {
         await interaction.editReply({
@@ -233,13 +243,12 @@ const command: BotCommand = {
 
       await guild.members.fetch();
       const role = guild.roles.cache.get(AKTIFLIK_ROLE_ID);
-      // Filter members to ensure they actually have the role in this guild context
       const roleMembers = role ? role.members.filter(m => m.roles.cache.has(AKTIFLIK_ROLE_ID)) : null;
       const roleMembersCount = roleMembers ? roleMembers.size : 0;
 
       const embed = new EmbedBuilder()
         .setTitle('✅ Aktiflik Kontrolü')
-        .setDescription(`Aşağıdaki butona tıklayarak aktifliğinizi onaylayın!`)
+        .setDescription(`Aşağıdaki butona tıklayarak aktifliğinizi onaylayın!\n\n**Süre:** ${hours} Saat`)
         .setColor('Green')
         .addFields({ name: '📊 Katilim', value: `0/${roleMembersCount}`, inline: false })
         .setFooter({ text: `Aktiflik kontrolü — ${turkishDate()}` });
@@ -256,12 +265,11 @@ const command: BotCommand = {
         components: [row],
       });
 
-      // No more DURATION limit, 24 hours expiry in DB just for safety
       const sessionId = client.db.createAktiflikSession(
         message.id,
         message.channelId,
         AKTIFLIK_ROLE_ID,
-        86400, // 24 hours safety limit
+        hours * 3600, // seconds
         interaction.user.id
       );
 
@@ -272,6 +280,12 @@ const command: BotCommand = {
       const activeRow = new ActionRowBuilder<ButtonBuilder>().addComponents(activeButton);
       await message.edit({ components: [activeRow] });
 
+      // Start timeout for auto-close
+      setTimeout(() => {
+        finalizeAktiflikSession(client, guild, sessionId, message.id, message.channelId)
+          .catch((error) => console.error('Aktiflik kapatma hatasi:', error));
+      }, durationMs);
+
       client.db.addBotLog(
         'aktiflik_kontrolu_baslatildi',
         interaction.user.id,
@@ -279,7 +293,7 @@ const command: BotCommand = {
       );
 
       await interaction.editReply({
-        content: `✅ Aktiflik kontrolü başlatıldı!`,
+        content: `✅ Aktiflik kontrolü başlatıldı! Süre: ${hours} Saat.`,
       });
 
     } catch (error) {
