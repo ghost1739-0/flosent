@@ -53,8 +53,10 @@ const command: BotCommand = {
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
 
       const message = await channel.send({
+        content: '@everyone',
         embeds: [embed],
         components: [row],
+        allowedMentions: { parse: ['everyone'] },
       });
 
       // Send DM to all members with AKTIFLIK_ROLE_ID

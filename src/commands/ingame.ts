@@ -10,7 +10,7 @@ import {
 import type { BotCommand, BotClient } from '../types';
 import { turkishDate } from '../utils/helpers';
 
-const INGAME_CHANNEL_ID = '1500135056637689939git ';
+const INGAME_CHANNEL_ID = '1500135056637689938';
 const YETKILI_ROLE_ID = '1500135055207567590'; // High rank role
 
 const command: BotCommand = {
@@ -90,8 +90,10 @@ const command: BotCommand = {
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(joinButtonTemp, leaveButtonTemp);
 
       const message = await channel.send({
+        content: '@everyone',
         embeds: [embed],
         components: [row],
+        allowedMentions: { parse: ['everyone'] },
       });
 
       // Create session in database
