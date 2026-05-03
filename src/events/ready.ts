@@ -208,6 +208,36 @@ async function recoverAndScheduleAktiflikSessions(client: BotClient): Promise<vo
   }
 }
 
+async function sweepExpiredAktiflikSessions(client: BotClient): Promise<void> {
+  const sessions = client.db.getActiveAktiflikSessions();
+  if (!sessions.length) {
+    return;
+  }
+
+  for (const session of sessions) {
+    if (new Date(session.ends_at).getTime() > Date.now()) {
+      continue;
+    }
+
+    let guild: Guild | null = null;
+    for (const [, cachedGuild] of client.guilds.cache) {
+      const found = cachedGuild.channels.cache.get(session.channel_id)
+        ?? await cachedGuild.channels.fetch(session.channel_id).catch(() => null);
+      if (found) {
+        guild = cachedGuild;
+        break;
+      }
+    }
+
+    if (!guild) {
+      client.db.closeAktiflikSession(session.id);
+      continue;
+    }
+
+    await finalizeAktiflikSessionByRow(client, guild, session);
+  }
+}
+
 export const name = 'ready';
 export const once = true;
 
@@ -221,6 +251,14 @@ export async function execute(client: import('discord.js').Client): Promise<void
   });
 
   await recoverAndScheduleAktiflikSessions(botClient);
+
+  // Safety net: if any timer is missed, expired sessions are force-finalized.
+  setInterval(() => {
+    sweepExpiredAktiflikSessions(botClient).catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error('Aktiflik sweep hatasi:', error);
+    });
+  }, 5000);
 }
 
 export default { name, once, execute } satisfies BotEvent;
