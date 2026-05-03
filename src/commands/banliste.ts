@@ -17,13 +17,13 @@ const command: BotCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
+      await interaction.deferReply({ ephemeral: true });
       const client = interaction.client as BotClient;
       const bans = client.db.getActiveBans();
 
       if (bans.length === 0) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '✅ Aktif ban bulunmuyor.',
-          ephemeral: true,
         });
         return;
       }
@@ -64,17 +64,15 @@ const command: BotCommand = {
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(prevButton, nextButton);
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [embed],
         components: totalPages > 1 ? [row] : [],
-        ephemeral: false,
       });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Banliste komutu hatası:', error);
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ Bir hata oluştu.',
-        ephemeral: true,
       });
     }
   },

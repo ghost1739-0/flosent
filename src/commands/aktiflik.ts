@@ -20,22 +20,21 @@ const command: BotCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
+      await interaction.deferReply({ ephemeral: true });
       const client = interaction.client as BotClient;
       const guild = interaction.guild;
 
       if (!guild) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '❌ Bu komut sunucuda kullanılabilir.',
-          ephemeral: true,
         });
         return;
       }
 
       const channel = guild.channels.cache.get(AKTIFLIK_CHANNEL_ID);
       if (!channel || !('send' in channel)) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '❌ Aktiflik kanalı bulunamadı.',
-          ephemeral: true,
         });
         return;
       }
@@ -79,16 +78,14 @@ const command: BotCommand = {
         interaction.user.username
       );
 
-      await interaction.reply({
+      await interaction.editReply({
         content: '✅ Aktiflik kontrolü başlatıldı!',
-        ephemeral: true,
       });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Aktiflik komutu hatası:', error);
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ Bir hata oluştu.',
-        ephemeral: true,
       });
     }
   },

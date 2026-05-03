@@ -24,24 +24,23 @@ const command: BotCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
+      await interaction.deferReply({ ephemeral: true });
       const client = interaction.client as BotClient;
       const user = interaction.options.getUser('kullanici', true);
       const seconds = interaction.options.getInteger('sure', true);
       const guild = interaction.guild;
 
       if (!guild) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '❌ Bu komut sunucuda kullanılabilir.',
-          ephemeral: true,
         });
         return;
       }
 
       const member = await guild.members.fetch(user.id).catch(() => null);
       if (!member) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '❌ Kullanıcı sunucuda değil.',
-          ephemeral: true,
         });
         return;
       }
@@ -74,16 +73,14 @@ const command: BotCommand = {
 
       client.db.addBotLog('timeout', user.id, user.username, `Süre: ${seconds} saniye`);
 
-      await interaction.reply({
+      await interaction.editReply({
         content: '✅ Timeout başarıyla uygulandı!',
-        ephemeral: true,
       });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Timeout komutu hatası:', error);
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ Bir hata oluştu.',
-        ephemeral: true,
       });
     }
   },

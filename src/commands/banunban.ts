@@ -15,13 +15,13 @@ const command: BotCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
+      await interaction.deferReply({ ephemeral: true });
       const client = interaction.client as BotClient;
       const bans = client.db.getActiveBans();
 
       if (bans.length === 0) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '✅ Kaldırılacak aktif ban bulunmuyor.',
-          ephemeral: true,
         });
         return;
       }
@@ -39,17 +39,15 @@ const command: BotCommand = {
 
       const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
-      await interaction.reply({
+      await interaction.editReply({
         content: 'Unbanlayacak kullanıcıyı seçin:',
         components: [row],
-        ephemeral: true,
       });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Banunban komutu hatası:', error);
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ Bir hata oluştu.',
-        ephemeral: true,
       });
     }
   },

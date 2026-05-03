@@ -13,13 +13,13 @@ const command: BotCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
+      await interaction.deferReply({ ephemeral: true });
       const client = interaction.client as BotClient;
       const leaderboard = client.db.getFarmLeaderboard();
 
       if (leaderboard.length === 0) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '📭 Henüz farm verisi yok.',
-          ephemeral: true,
         });
         return;
       }
@@ -38,16 +38,14 @@ const command: BotCommand = {
         .setFooter({ text: `Son güncelleme: ${turkishDate()}` })
         .setColor('Yellow');
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [embed],
-        ephemeral: false,
       });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Farm komutu hatası:', error);
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ Bir hata oluştu.',
-        ephemeral: true,
       });
     }
   },

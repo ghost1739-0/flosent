@@ -19,24 +19,23 @@ const command: BotCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
+      await interaction.deferReply({ ephemeral: true });
       const client = interaction.client as BotClient;
       const user = interaction.options.getUser('kullanici', true);
       const reason = interaction.options.getString('sebep') || 'Sebep belirtilmedi';
       const guild = interaction.guild;
 
       if (!guild) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '❌ Bu komut sunucuda kullanılabilir.',
-          ephemeral: true,
         });
         return;
       }
 
       const member = await guild.members.fetch(user.id).catch(() => null);
       if (!member) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '❌ Kullanıcı sunucuda değil.',
-          ephemeral: true,
         });
         return;
       }
@@ -69,16 +68,14 @@ const command: BotCommand = {
 
       client.db.addBotLog('kick', user.id, user.username, `Sebep: ${reason}`);
 
-      await interaction.reply({
+      await interaction.editReply({
         content: '✅ Kullanıcı başarıyla atıldı!',
-        ephemeral: true,
       });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Kick komutu hatası:', error);
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ Bir hata oluştu.',
-        ephemeral: true,
       });
     }
   },

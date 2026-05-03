@@ -21,13 +21,13 @@ const command: BotCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
+      await interaction.deferReply({ ephemeral: true });
       const client = interaction.client as BotClient;
       const guild = interaction.guild;
 
       if (!guild) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '❌ Bu komut sunucuda kullanılabilir.',
-          ephemeral: true,
         });
         return;
       }
@@ -35,18 +35,16 @@ const command: BotCommand = {
       // Check if there's already an active session
       const activeSession = client.db.getActiveIngameSession();
       if (activeSession) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '⚠️ Zaten aktif bir in-game oturumu var. Lütfen onu kapatın.',
-          ephemeral: true,
         });
         return;
       }
 
       const channel = guild.channels.cache.get(INGAME_CHANNEL_ID);
       if (!channel || !('send' in channel)) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '❌ In-game kanalı bulunamadı.',
-          ephemeral: true,
         });
         return;
       }
@@ -122,16 +120,14 @@ const command: BotCommand = {
         interaction.user.username
       );
 
-      await interaction.reply({
+      await interaction.editReply({
         content: `✅ In-game oturumu başlatıldı! (Session ID: ${sessionId})`,
-        ephemeral: true,
       });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('In-game komutu hatası:', error);
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ Bir hata oluştu.',
-        ephemeral: true,
       });
     }
   },

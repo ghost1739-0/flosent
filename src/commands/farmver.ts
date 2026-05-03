@@ -20,23 +20,22 @@ const command: BotCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
+      await interaction.deferReply({ ephemeral: true });
       const client = interaction.client as BotClient;
       const amount = interaction.options.getInteger('miktar', true);
 
       // Check if command is used in correct channel
       if (interaction.channelId !== FARMVER_CHANNEL_ID) {
-        await interaction.reply({
+        await interaction.editReply({
           content: `❌ Bu komut sadece <#${FARMVER_CHANNEL_ID}> kanalında kullanılabilir.`,
-          ephemeral: true,
         });
         return;
       }
 
       // Validate amount
       if (amount <= 0) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '❌ Miktar 0 dan büyük olmalıdır.',
-          ephemeral: true,
         });
         return;
       }
@@ -45,16 +44,14 @@ const command: BotCommand = {
       client.db.addFarmLog(interaction.user.id, interaction.user.username, amount);
       client.db.addBotLog('farm_ver', interaction.user.id, interaction.user.username, `Miktar: ${amount}`);
 
-      await interaction.reply({
+      await interaction.editReply({
         content: `✅ ${amount} farm başarıyla kaydedildi!`,
-        ephemeral: true,
       });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Farmver komutu hatası:', error);
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ Bir hata oluştu.',
-        ephemeral: true,
       });
     }
   },
