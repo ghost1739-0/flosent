@@ -14,7 +14,7 @@ import { turkishDate } from '../utils/helpers';
 const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
 const AKTIFLIK_ROLE_ID = '1500135055207567595';
 const AKTIFLIK_PENALTY_CHANNEL_ID = '1500520323982954739';
-const PENALTY_ROLE_1 = '1500496578052362280';
+const PENALTY_ROLE_1 = '1500509508051402923';
 const PENALTY_ROLE_2 = '1500496724152553614';
 const PENALTY_ROLE_3 = '1500496699171405895';
 
@@ -163,7 +163,10 @@ async function finalizeAktiflikSession(
 
   for (const member of missedMembers) {
     console.log(`[Aktiflik] Ceza uygulaniyor: ${member.displayName} (${member.id})`);
-    await applyPenaltyForMissedMember(member, client, guild, AKTIFLIK_PENALTY_CHANNEL_ID);
+    // ensure we await penalty to handle them one by one
+    await applyPenaltyForMissedMember(member, client, guild, AKTIFLIK_PENALTY_CHANNEL_ID).catch(err => {
+      console.error(`[Aktiflik] Ceza uygulama hatasi (${member.displayName}):`, err);
+    });
   }
 
   const currentEmbed = message.embeds[0];
