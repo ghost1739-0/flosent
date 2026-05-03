@@ -12,11 +12,16 @@ export class DatabaseManager {
 
   // ============ AKTIFLIK LOGS ============
   addAktiflikLog(discordId: string, username: string): void {
+    // Insert only if the user hasn't checked today (atomic check+insert)
+    const now = new Date().toISOString();
     const stmt = this.db.prepare(`
       INSERT INTO aktiflik_logs (discord_id, username, checked_at)
-      VALUES (?, ?, ?)
+      SELECT ?, ?, ?
+      WHERE NOT EXISTS (
+        SELECT 1 FROM aktiflik_logs WHERE discord_id = ? AND DATE(checked_at) = DATE(?)
+      )
     `);
-    stmt.run(discordId, username, new Date().toISOString());
+    stmt.run(discordId, username, now, discordId, now);
   }
 
   hasCheckedAktiflikToday(discordId: string): boolean {
