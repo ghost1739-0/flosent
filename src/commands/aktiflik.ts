@@ -239,7 +239,7 @@ const command: BotCommand = {
 
       const embed = new EmbedBuilder()
         .setTitle('✅ Aktiflik Kontrolü')
-        .setDescription(`Aşağıdaki butona tıklayarak aktifliğinizi onaylayın!\n\n**Hedef:** 20 Katılımcı (20 kişi dolduğunda sistem kapanır)`)
+        .setDescription(`Aşağıdaki butona tıklayarak aktifliğinizi onaylayın!`)
         .setColor('Green')
         .addFields({ name: '📊 Katilim', value: `0/${roleMembersCount}`, inline: false })
         .setFooter({ text: `Aktiflik kontrolü — ${turkishDate()}` });
@@ -279,7 +279,7 @@ const command: BotCommand = {
       );
 
       await interaction.editReply({
-        content: `✅ Aktiflik kontrolü başlatıldı! 20 kişi katıldığında otomatik kapanacak.`,
+        content: `✅ Aktiflik kontrolü başlatıldı!`,
       });
 
     } catch (error) {

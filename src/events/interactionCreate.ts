@@ -110,19 +110,6 @@ export async function execute(interaction: Interaction): Promise<void> {
               }
             );
             await message.edit({ embeds: [newEmbed] });
-
-            // Auto-close if 20 people joined
-            if (participants.length >= 20 && interaction.guild) {
-              // We don't want to await this because it might take time to process penalties
-              // but we want to close the session immediately in DB to prevent more clicks
-              finalizeAktiflikSession(
-                client,
-                interaction.guild,
-                sessionId,
-                message.id,
-                message.channelId
-              ).catch(err => console.error('[Aktiflik] Auto-close error:', err));
-            }
           }
         } catch (error) {
           // eslint-disable-next-line no-console
