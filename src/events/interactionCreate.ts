@@ -46,11 +46,11 @@ export async function execute(interaction: Interaction): Promise<void> {
       // Aktiflik onayla button
       if (customId.startsWith('aktiflik_onayla')) {
         try {
+          await interaction.deferReply({ ephemeral: true });
           const hasChecked = client.db.hasCheckedAktiflikToday(interaction.user.id);
           if (hasChecked) {
-            await interaction.reply({
+            await interaction.editReply({
               content: '⚠️ Bugün zaten aktifliğini onayladın.',
-              ephemeral: true,
             });
             return;
           }
@@ -58,9 +58,8 @@ export async function execute(interaction: Interaction): Promise<void> {
           client.db.addAktiflikLog(interaction.user.id, interaction.user.username);
           client.db.addBotLog('aktiflik_kontrol', interaction.user.id, interaction.user.username);
 
-          await interaction.reply({
+          await interaction.editReply({
             content: '✅ Aktifliğin onaylandı!',
-            ephemeral: true,
           });
 
           // Update the embed to show new participant
@@ -78,9 +77,8 @@ export async function execute(interaction: Interaction): Promise<void> {
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('Aktiflik button hatası:', error);
-          await interaction.reply({
+          await interaction.editReply({
             content: '❌ Bir hata oluştu.',
-            ephemeral: true,
           });
         }
         return;
@@ -89,13 +87,13 @@ export async function execute(interaction: Interaction): Promise<void> {
       // In-game session buttons
       if (customId.startsWith('ingame_katil_')) {
         try {
+          await interaction.deferReply({ ephemeral: true });
           const sessionId = parseInt(customId.replace('ingame_katil_', ''), 10);
           const session = client.db.getActiveIngameSession();
 
           if (!session || session.id !== sessionId) {
-            await interaction.reply({
+            await interaction.editReply({
               content: '❌ Bu oturum artık aktif değil.',
-              ephemeral: true,
             });
             return;
           }
@@ -103,17 +101,15 @@ export async function execute(interaction: Interaction): Promise<void> {
           const participants = client.db.getIngameSessionParticipants(sessionId);
 
           if (participants.some((p) => p.id === interaction.user.id)) {
-            await interaction.reply({
+            await interaction.editReply({
               content: '⚠️ Zaten katıldınız.',
-              ephemeral: true,
             });
             return;
           }
 
           if (participants.length >= 20) {
-            await interaction.reply({
+            await interaction.editReply({
               content: '⚠️ Oturum dolu! (20/20)',
-              ephemeral: true,
             });
             return;
           }
@@ -144,16 +140,14 @@ export async function execute(interaction: Interaction): Promise<void> {
             await message.edit({ embeds: [embed] });
           }
 
-          await interaction.reply({
+          await interaction.editReply({
             content: '✅ Oturuma katıldın!',
-            ephemeral: true,
           });
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('In-game katıl button hatası:', error);
-          await interaction.reply({
+          await interaction.editReply({
             content: '❌ Bir hata oluştu.',
-            ephemeral: true,
           });
         }
         return;
@@ -161,13 +155,13 @@ export async function execute(interaction: Interaction): Promise<void> {
 
       if (customId.startsWith('ingame_ayril_')) {
         try {
+          await interaction.deferReply({ ephemeral: true });
           const sessionId = parseInt(customId.replace('ingame_ayril_', ''), 10);
           const session = client.db.getActiveIngameSession();
 
           if (!session || session.id !== sessionId) {
-            await interaction.reply({
+            await interaction.editReply({
               content: '❌ Bu oturum artık aktif değil.',
-              ephemeral: true,
             });
             return;
           }
@@ -198,16 +192,14 @@ export async function execute(interaction: Interaction): Promise<void> {
             await message.edit({ embeds: [embed] });
           }
 
-          await interaction.reply({
+          await interaction.editReply({
             content: '✅ Oturumdan ayrıldın!',
-            ephemeral: true,
           });
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('In-game ayrıl button hatası:', error);
-          await interaction.reply({
+          await interaction.editReply({
             content: '❌ Bir hata oluştu.',
-            ephemeral: true,
           });
         }
         return;
@@ -221,9 +213,9 @@ export async function execute(interaction: Interaction): Promise<void> {
           const userId = parts[3];
 
           if (interaction.user.id !== userId) {
-            await interaction.reply({
+            await interaction.deferReply({ ephemeral: true });
+            await interaction.editReply({
               content: '❌ Bu buton sana ait değil.',
-              ephemeral: true,
             });
             return;
           }
@@ -274,13 +266,13 @@ export async function execute(interaction: Interaction): Promise<void> {
 
       if (customId === 'banunban_select') {
         try {
+          await interaction.deferReply({ ephemeral: true });
           const banId = parseInt(interaction.values[0], 10);
           const ban = client.db.getBanById(banId);
 
           if (!ban) {
-            await interaction.reply({
+            await interaction.editReply({
               content: '❌ Ban bulunamadı.',
-              ephemeral: true,
             });
             return;
           }
@@ -323,16 +315,14 @@ export async function execute(interaction: Interaction): Promise<void> {
             await channel.send({ embeds: [embed] });
           }
 
-          await interaction.reply({
+          await interaction.editReply({
             content: '✅ Kullanıcının banı kaldırıldı!',
-            ephemeral: true,
           });
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('Banunban select hatası:', error);
-          await interaction.reply({
+          await interaction.editReply({
             content: '❌ Bir hata oluştu.',
-            ephemeral: true,
           });
         }
         return;

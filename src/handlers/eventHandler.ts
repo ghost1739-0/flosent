@@ -27,7 +27,8 @@ export function loadEvents(client: Client, eventsDirectory = path.join(__dirname
 
   for (const filePath of eventFiles) {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const loadedEvent = require(filePath) as Partial<BotEvent>;
+    const rawModule = require(filePath) as { default?: Partial<BotEvent> } & Partial<BotEvent>;
+    const loadedEvent: Partial<BotEvent> = rawModule.default ?? rawModule;
     if (!loadedEvent.name || !loadedEvent.execute) {
       continue;
     }
