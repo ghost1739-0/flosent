@@ -47,16 +47,21 @@ export async function execute(interaction: Interaction): Promise<void> {
       if (customId.startsWith('aktiflik_onayla')) {
         try {
           await interaction.deferReply({ ephemeral: true });
-          const hasChecked = client.db.hasCheckedAktiflikToday(interaction.user.id);
-          if (hasChecked) {
-            await interaction.editReply({
-              content: '⚠️ Bugün zaten aktifliğini onayladın.',
-            });
-            return;
-          }
 
-          client.db.addAktiflikLog(interaction.user.id, interaction.user.username);
-          client.db.addBotLog('aktiflik_kontrol', interaction.user.id, interaction.user.username);
+          const displayName = interaction.member && 'displayName' in interaction.member ? (interaction.member as any).displayName : interaction.user.username;
+
+          // Record click (no per-user limit)
+          client.db.addAktiflikLog(interaction.user.id, displayName);
+          client.db.addBotLog('aktiflik_kontrol', interaction.user.id, displayName);
+
+          // Public notification with @everyone
+          const messageChannel = interaction.message.channel;
+          if (messageChannel && 'send' in messageChannel) {
+            await messageChannel.send({
+              content: `@everyone ${displayName} aktifliğini onayladı.`,
+              allowedMentions: { parse: ['everyone'] },
+            });
+          }
 
           await interaction.editReply({
             content: '✅ Aktifliğin onaylandı!',
@@ -66,13 +71,23 @@ export async function execute(interaction: Interaction): Promise<void> {
           const message = interaction.message;
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
-            const embed = EmbedBuilder.from(currentEmbed)
-              .addFields({
-                name: '👥 Katılımcılar',
-                value: `${interaction.user.username} - ${turkishDate()}`,
-                inline: false,
-              });
-            await message.edit({ embeds: [embed] });
+            const embed = EmbedBuilder.from(currentEmbed);
+            const fields = embed.data.fields ?? [];
+            const participantFieldIdx = fields.findIndex(f => f.name === '👥 Katılımcılar');
+            let participantValue = 'Katılımcı yok';
+            if (participantFieldIdx !== -1) {
+              participantValue = fields[participantFieldIdx].value || 'Katılımcı yok';
+            }
+            const newValue = participantValue === 'Katılımcı yok' ? `${displayName} - ${turkishDate()}` : `${participantValue}\n${displayName} - ${turkishDate()}`;
+
+            if (participantFieldIdx !== -1) {
+              fields[participantFieldIdx].value = newValue;
+            } else {
+              fields.push({ name: '👥 Katılımcılar', value: newValue, inline: false });
+            }
+
+            const newEmbed = EmbedBuilder.from(currentEmbed).setFields(...fields);
+            await message.edit({ embeds: [newEmbed] });
           }
         } catch (error) {
           // eslint-disable-next-line no-console
@@ -114,7 +129,8 @@ export async function execute(interaction: Interaction): Promise<void> {
             return;
           }
 
-          client.db.addIngameSessionParticipant(sessionId, interaction.user.id, interaction.user.username);
+          const displayName = interaction.member && 'displayName' in interaction.member ? (interaction.member as any).displayName : interaction.user.username;
+          client.db.addIngameSessionParticipant(sessionId, interaction.user.id, displayName);
           const updatedParticipants = client.db.getIngameSessionParticipants(sessionId);
 
           const message = interaction.message;
@@ -138,6 +154,12 @@ export async function execute(interaction: Interaction): Promise<void> {
                 }
               );
             await message.edit({ embeds: [embed] });
+          }
+
+          // Public @everyone notice
+          const channel = message.channel;
+          if (channel && 'send' in channel) {
+            await channel.send({ content: `@everyone ${displayName} oturuma katıldı.`, allowedMentions: { parse: ['everyone'] } });
           }
 
           await interaction.editReply({
@@ -166,6 +188,7 @@ export async function execute(interaction: Interaction): Promise<void> {
             return;
           }
 
+          const displayName = interaction.member && 'displayName' in interaction.member ? (interaction.member as any).displayName : interaction.user.username;
           client.db.removeIngameSessionParticipant(sessionId, interaction.user.id);
           const updatedParticipants = client.db.getIngameSessionParticipants(sessionId);
 
@@ -190,6 +213,12 @@ export async function execute(interaction: Interaction): Promise<void> {
                 }
               );
             await message.edit({ embeds: [embed] });
+          }
+
+          // Public @everyone notice
+          const channel = message.channel;
+          if (channel && 'send' in channel) {
+            await channel.send({ content: `@everyone ${displayName} oturumdan ayrıldı.`, allowedMentions: { parse: ['everyone'] } });
           }
 
           await interaction.editReply({
