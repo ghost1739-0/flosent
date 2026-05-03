@@ -281,7 +281,9 @@ const command: BotCommand = {
       await message.edit({ components: [activeRow] });
 
       // Start timeout for auto-close
+      console.log(`[Aktiflik] Zamanlayici kuruldu: ${hours} saat (${durationMs} ms)`);
       setTimeout(() => {
+        console.log(`[Aktiflik] Otomatik kapatma tetiklendi. Session: ${sessionId}`);
         finalizeAktiflikSession(client, guild, sessionId, message.id, message.channelId)
           .catch((error) => console.error('Aktiflik kapatma hatasi:', error));
       }, durationMs);
