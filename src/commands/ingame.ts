@@ -90,10 +90,10 @@ const command: BotCommand = {
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(joinButtonTemp, leaveButtonTemp);
 
       const message = await channel.send({
-        content: '@everyone',
+        // content: '@everyone', // TODO: Re-enable @everyone mention later
         embeds: [embed],
         components: [row],
-        allowedMentions: { parse: ['everyone'] },
+        // allowedMentions: { parse: ['everyone'] },
       });
 
       // Create session in database

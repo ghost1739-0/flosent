@@ -55,13 +55,13 @@ export async function execute(interaction: Interaction): Promise<void> {
           client.db.addBotLog('aktiflik_kontrol', interaction.user.id, displayName);
 
           // Public notification with @everyone
-          const messageChannel = interaction.message.channel;
-          if (messageChannel && 'send' in messageChannel) {
-            await messageChannel.send({
-              content: `@everyone ${displayName} aktifliğini onayladı.`,
-              allowedMentions: { parse: ['everyone'] },
-            });
-          }
+          // const messageChannel = interaction.message.channel;
+          // if (messageChannel && 'send' in messageChannel) {
+          //   await messageChannel.send({
+          //     content: `@everyone ${displayName} aktifliğini onayladı.`,
+          //     allowedMentions: { parse: ['everyone'] },
+          //   });
+          // } // TODO: Re-enable @everyone notification later
 
           await interaction.editReply({
             content: '✅ Aktifliğin onaylandı!',
@@ -157,10 +157,10 @@ export async function execute(interaction: Interaction): Promise<void> {
           }
 
           // Public @everyone notice
-          const channel = message.channel;
-          if (channel && 'send' in channel) {
-            await channel.send({ content: `@everyone ${displayName} oturuma katıldı.`, allowedMentions: { parse: ['everyone'] } });
-          }
+          // const channel = message.channel;
+          // if (channel && 'send' in channel) {
+          //   await channel.send({ content: `@everyone ${displayName} oturuma katıldı.`, allowedMentions: { parse: ['everyone'] } });
+          // } // TODO: Re-enable @everyone notification later
 
           await interaction.editReply({
             content: '✅ Oturuma katıldın!',
@@ -216,10 +216,10 @@ export async function execute(interaction: Interaction): Promise<void> {
           }
 
           // Public @everyone notice
-          const channel = message.channel;
-          if (channel && 'send' in channel) {
-            await channel.send({ content: `@everyone ${displayName} oturumdan ayrıldı.`, allowedMentions: { parse: ['everyone'] } });
-          }
+          // const channel = message.channel;
+          // if (channel && 'send' in channel) {
+          //   await channel.send({ content: `@everyone ${displayName} oturumdan ayrıldı.`, allowedMentions: { parse: ['everyone'] } });
+          // } // TODO: Re-enable @everyone notification later
 
           await interaction.editReply({
             content: '✅ Oturumdan ayrıldın!',
