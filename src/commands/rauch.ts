@@ -1,6 +1,7 @@
 import {
   ChatInputCommandInteraction,
   SlashCommandBuilder,
+  TextBasedChannel,
 } from 'discord.js';
 import type { BotCommand } from '../types';
 
@@ -13,17 +14,24 @@ const command: BotCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
+      await interaction.deferReply({ ephemeral: true });
+
       if (interaction.channelId !== TARGET_CHANNEL_ID) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '❌ Bu komut sadece belirlenen kanalda kullanılabilir.',
-          ephemeral: true,
         });
         return;
       }
 
-      await interaction.reply({
-        content: 'ben kokuyorum',
-      });
+      const targetChannel = interaction.guild?.channels.cache.get(TARGET_CHANNEL_ID);
+      if (!targetChannel || !('send' in targetChannel)) {
+        await interaction.editReply({ content: '❌ Hedef kanal bulunamadı.' });
+        return;
+      }
+
+      await (targetChannel as TextBasedChannel).send('ben kokuyorum');
+
+      await interaction.editReply({ content: '✅ Mesaj gönderildi.' });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Rauch komutu hatası:', error);
