@@ -1,0 +1,29 @@
+services:
+  - type: worker
+    name: flosent-bot
+    runtime: node
+    buildCommand: npm install && npm run build && npm run db:init
+    startCommand: npm start
+    envVars:
+      - key: TOKEN
+        sync: false
+      - key: CLIENT_ID
+        sync: false
+      - key: GUILD_ID
+        sync: false
+      - key: LOG_CHANNEL_ID
+        sync: false
+      - key: AKTIFLIK_CHANNEL_ID
+        sync: false
+      - key: AKTIFLIK_ROLE_ID
+        sync: false
+      - key: FARM_CHANNEL_ID
+        sync: false
+      - key: FARMVER_CHANNEL_ID
+        sync: false
+      - key: INGAME_CHANNEL_ID
+        sync: false
+    disk:
+      name: sqlite-db
+      mountPath: /data
+      sizeGB: 1

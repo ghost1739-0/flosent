@@ -1,0 +1,27 @@
+{
+  "name": "flosent-gunrp-bot",
+  "version": "1.0.0",
+  "description": "FiveM GunRP ekibi için Discord botu",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "deploy": "ts-node src/deploy-commands.ts",
+    "db:init": "ts-node src/database/init.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.17.3",
+    "dotenv": "^16.6.1",
+    "better-sqlite3": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.17",
+    "@types/better-sqlite3": "^7.6.8",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
