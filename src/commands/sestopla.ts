@@ -8,11 +8,6 @@ import {
 import type { BotCommand } from '../types';
 
 const TARGET_VOICE_CHANNEL_ID = '1500135057078223027';
-const EXEMPT_ROLE_IDS = [
-  '1500135055207567599',
-  '1500135149403246644',
-  '1500135055224340565',
-];
 
 const command: BotCommand = {
   data: new SlashCommandBuilder()
@@ -41,39 +36,23 @@ const command: BotCommand = {
       let mutedCount = 0;
 
       for (const [memberId, voiceState] of voiceStates) {
-        if (!voiceState.channelId || voiceState.channelId === TARGET_VOICE_CHANNEL_ID) continue;
-
         const member = voiceState.member;
         if (!member) continue;
 
         try {
-          // Move member to target channel
-          await voiceState.setChannel(TARGET_VOICE_CHANNEL_ID as any);
-          movedCount++;
+          // Move member to target channel if not already there
+          if (voiceState.channelId && voiceState.channelId !== TARGET_VOICE_CHANNEL_ID) {
+            await voiceState.setChannel(TARGET_VOICE_CHANNEL_ID as any);
+            movedCount++;
+          }
 
-          // Check if member should be muted
-          const isExempt = EXEMPT_ROLE_IDS.some(roleId => member.roles.cache.has(roleId));
-          if (!isExempt) {
+          // Mute everyone regardless of roles
+          if (voiceState.channelId && !voiceState.serverMute) {
             await voiceState.setMute(true, 'Sestopla komutu ile mikrofon kapatıldı.');
             mutedCount++;
           }
         } catch (err) {
           console.error(`Üye taşıma/susturma hatası (${member.displayName}):`, err);
-        }
-      }
-
-      // Also handle members already in the target channel but not exempt
-      const membersInTarget = targetChannel.members;
-      for (const [memberId, member] of membersInTarget) {
-        const isExempt = EXEMPT_ROLE_IDS.some(roleId => member.roles.cache.has(roleId));
-        const voiceState = member.voice;
-        if (!isExempt && voiceState && !voiceState.serverMute) {
-          try {
-            await voiceState.setMute(true, 'Sestopla komutu ile mikrofon kapatıldı.');
-            mutedCount++;
-          } catch (err) {
-            console.error(`Hedef kanaldaki üyeyi susturma hatası (${member.displayName}):`, err);
-          }
         }
       }
 

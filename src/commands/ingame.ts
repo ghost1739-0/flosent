@@ -113,6 +113,20 @@ const command: BotCommand = {
         // allowedMentions: { parse: ['everyone'] },
       });
 
+      // Send DM to participants
+      const roleToNotify = guild.roles.cache.get(YETKILI_ROLE_ID);
+      if (roleToNotify) {
+        const members = Array.from(roleToNotify.members.values());
+        for (const member of members) {
+          if (member.user.bot) continue;
+          try {
+            await member.send('rz çıkıyoruz sese toplan');
+          } catch (dmErr) {
+            // Silently ignore DM errors (closed DMs)
+          }
+        }
+      }
+
       // Create session in database
       const sessionId = client.db.createIngameSession(message.id, channel.id, interaction.user.id);
 
