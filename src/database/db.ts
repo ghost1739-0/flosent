@@ -156,6 +156,26 @@ export class DatabaseManager {
     return stmt.get(messageId) as any;
   }
 
+  getActiveAktiflikSessions(): Array<{
+    id: number;
+    message_id: string;
+    channel_id: string;
+    target_role_id: string;
+    duration_seconds: number;
+    created_by: string;
+    created_at: string;
+    ends_at: string;
+    active: number;
+  }> {
+    const stmt = this.db.prepare(`
+      SELECT id, message_id, channel_id, target_role_id, duration_seconds, created_by, created_at, ends_at, active
+      FROM aktiflik_sessions
+      WHERE active = 1
+      ORDER BY ends_at ASC
+    `);
+    return stmt.all() as Array<any>;
+  }
+
   addAktiflikSessionParticipant(sessionId: number, discordId: string, username: string): boolean {
     const stmt = this.db.prepare(`
       INSERT OR IGNORE INTO aktiflik_session_participants (session_id, discord_id, username, joined_at)
