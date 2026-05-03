@@ -8,30 +8,64 @@ export class DatabaseManager {
     const dbPath = join(process.cwd(), 'data', 'database.db');
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
+    this.ensureAktiflikSchema();
+  }
+
+  private ensureAktiflikSchema(): void {
+    try {
+      const info = this.db.prepare("PRAGMA table_info('aktiflik_logs')").all() as Array<any>;
+      const hasCheckedDate = info.some((c) => c.name === 'checked_date');
+      if (!hasCheckedDate) {
+        this.db.prepare('ALTER TABLE aktiflik_logs ADD COLUMN checked_date TEXT').run();
+        this.db.prepare("UPDATE aktiflik_logs SET checked_date = DATE(checked_at)").run();
+        // create unique index to prevent duplicates per-day per-user
+        this.db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_aktiflik_unique ON aktiflik_logs(discord_id, checked_date)').run();
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('ensureAktiflikSchema error:', err);
+    }
   }
 
   // ============ AKTIFLIK LOGS ============
   addAktiflikLog(discordId: string, username: string): void {
-    // Insert only if the user hasn't checked today (atomic check+insert)
+    // Use checked_date column (YYYY-MM-DD) to enforce uniqueness atomically
     const now = new Date().toISOString();
-    const stmt = this.db.prepare(`
-      INSERT INTO aktiflik_logs (discord_id, username, checked_at)
-      SELECT ?, ?, ?
-      WHERE NOT EXISTS (
-        SELECT 1 FROM aktiflik_logs WHERE discord_id = ? AND DATE(checked_at) = DATE(?)
-      )
-    `);
-    stmt.run(discordId, username, now, discordId, now);
+    const date = now.split('T')[0];
+    try {
+      const stmt = this.db.prepare(`
+        INSERT OR IGNORE INTO aktiflik_logs (discord_id, username, checked_at, checked_date)
+        VALUES (?, ?, ?, ?)
+      `);
+      const result = stmt.run(discordId, username, now, date);
+      // result.changes will be 1 if inserted, 0 if ignored
+      return;
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('addAktiflikLog error:', err);
+    }
   }
 
   hasCheckedAktiflikToday(discordId: string): boolean {
     const today = new Date().toISOString().split('T')[0];
+    // Prefer checked_date column if exists
+    try {
+      const info = this.db.prepare("PRAGMA table_info('aktiflik_logs')").all() as Array<any>;
+      const hasCheckedDate = info.some((c) => c.name === 'checked_date');
+      if (hasCheckedDate) {
+        const stmt = this.db.prepare('SELECT 1 FROM aktiflik_logs WHERE discord_id = ? AND checked_date = ? LIMIT 1');
+        return !!stmt.get(discordId, today);
+      }
+    } catch (err) {
+      // ignore and fallback
+    }
+    const today2 = new Date().toISOString().split('T')[0];
     const stmt = this.db.prepare(`
       SELECT 1 FROM aktiflik_logs 
       WHERE discord_id = ? AND DATE(checked_at) = ?
       LIMIT 1
     `);
-    return !!stmt.get(discordId, today);
+    return !!stmt.get(discordId, today2);
   }
 
   // ============ BANS ============
