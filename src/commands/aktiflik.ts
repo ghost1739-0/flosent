@@ -100,10 +100,14 @@ async function applyPenaltyForMissedMember(
       roleText = `<@&${PENALTY_ROLE_3}>`;
     }
 
-    await penaltyChannel.send({
-      content: `${member} aktiflik tiklememe nedeniyle ${roleText} rolunu aldi. (ust uste: ${status.consecutive_misses})`,
-      allowedMentions: { parse: [] },
-    });
+    try {
+      await penaltyChannel.send({
+        content: `<@${member.id}> aktiflik tiklememe nedeniyle ${roleText} rolunu aldi. (ust uste: ${status.consecutive_misses})`,
+        allowedMentions: { users: [member.id] },
+      });
+    } catch (sendErr) {
+      console.error('Uyari kanali mesaj gönderme hatasi:', sendErr);
+    }
   }
 }
 
