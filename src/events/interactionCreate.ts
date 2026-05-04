@@ -93,7 +93,7 @@ export async function execute(interaction: Interaction): Promise<void> {
             const role = interaction.guild?.roles.cache.get('1500135055207567590');
             const total = role?.members.size ?? 0;
             const names = participants
-              .map((p) => `✅ ${p.username}`)
+              .map((p) => '✅ ' + (p.id ? `<@${p.id}>` : p.username))
               .join('\n');
             const participantValue = names.length > 1000 ? `${names.slice(0, 980)}\n...` : (names || 'Yok');
 
@@ -156,7 +156,7 @@ export async function execute(interaction: Interaction): Promise<void> {
             const currentEmbed = message.embeds[0];
             if (currentEmbed) {
               const participantList = participants
-                .map((p, i) => `${i + 1}. ${p.username}`)
+                .map((p, i) => `${i + 1}. ` + (p.id ? `<@${p.id}>` : p.username))
                 .join('\n') || 'Katılımcı yok';
 
               const closedEmbed = EmbedBuilder.from(currentEmbed)
@@ -204,7 +204,7 @@ export async function execute(interaction: Interaction): Promise<void> {
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
             const participantList = updatedParticipants
-              .map((p, i) => `${i + 1}. ${p.username}`)
+              .map((p, i) => `${i + 1}. ` + (p.id ? `<@${p.id}>` : p.username))
               .join('\n') || 'Katılımcı yok';
 
             const embed = EmbedBuilder.from(currentEmbed)
@@ -263,7 +263,7 @@ export async function execute(interaction: Interaction): Promise<void> {
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
             const participantList = updatedParticipants
-              .map((p, i) => `${i + 1}. ${p.username}`)
+              .map((p, i) => `${i + 1}. ` + (p.id ? `<@${p.id}>` : p.username))
               .join('\n') || 'Katılımcı yok';
 
             const embed = EmbedBuilder.from(currentEmbed)
