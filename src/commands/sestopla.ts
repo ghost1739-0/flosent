@@ -31,28 +31,52 @@ const command: BotCommand = {
         return;
       }
 
-      const voiceStates = guild.voiceStates.cache;
+      // Ensure cache of members is up-to-date
+      await guild.members.fetch().catch(() => null);
+
+      const me = guild.members.me;
+      if (!me) {
+        await interaction.editReply({ content: '❌ Botun sunucu üyesi bilgisi alınamadı.' });
+        return;
+      }
+
+      const missingPerms: string[] = [];
+      if (!me.permissions.has(PermissionFlagsBits.MoveMembers)) missingPerms.push('MoveMembers');
+      if (!me.permissions.has(PermissionFlagsBits.MuteMembers)) missingPerms.push('MuteMembers');
+      if (missingPerms.length) {
+        await interaction.editReply({ content: `❌ Botun gerekli izinleri yok: ${missingPerms.join(', ')}` });
+        return;
+      }
+
       let movedCount = 0;
       let mutedCount = 0;
 
-      for (const [memberId, voiceState] of voiceStates) {
-        const member = voiceState.member;
-        if (!member) continue;
+      // Iterate all voice-based channels except the target, then move their members
+      const voiceChannels = guild.channels.cache.filter((c) => (c instanceof VoiceChannel || c instanceof StageChannel));
+      for (const [chanId, chan] of voiceChannels) {
+        // skip the target channel
+        if (chanId === TARGET_VOICE_CHANNEL_ID) continue;
 
-        try {
-          // Move member to target channel if not already there
-          if (voiceState.channelId && voiceState.channelId !== TARGET_VOICE_CHANNEL_ID) {
-            await voiceState.setChannel(TARGET_VOICE_CHANNEL_ID as any);
-            movedCount++;
-          }
+        // channel.members is a collection of GuildMembers currently in that voice channel
+        for (const [memberId, member] of (chan as any).members) {
+          if (!member) continue;
+          if (member.user.bot) continue;
 
-          // Mute everyone regardless of roles
-          if (voiceState.channelId && !voiceState.serverMute) {
-            await voiceState.setMute(true, 'Sestopla komutu ile mikrofon kapatıldı.');
-            mutedCount++;
+          try {
+            // move if not already in target
+            if (!member.voice || member.voice.channelId !== TARGET_VOICE_CHANNEL_ID) {
+              await member.voice.setChannel(TARGET_VOICE_CHANNEL_ID as any);
+              movedCount++;
+            }
+
+            // mute if not already server muted
+            if (member.voice && !member.voice.serverMute) {
+              await member.voice.setMute(true, 'Sestopla komutu ile mikrofon kapatıldı.');
+              mutedCount++;
+            }
+          } catch (err) {
+            console.error(`Üye taşıma/susturma hatası (${member.displayName}):`, err);
           }
-        } catch (err) {
-          console.error(`Üye taşıma/susturma hatası (${member.displayName}):`, err);
         }
       }
 
