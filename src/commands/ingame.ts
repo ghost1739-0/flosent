@@ -21,7 +21,7 @@ const command: BotCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply();
       const client = interaction.client as BotClient;
       const guild = interaction.guild;
 
