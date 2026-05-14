@@ -474,6 +474,11 @@ export class DatabaseManager {
     await this.run('UPDATE ingame_sessions SET last_q_announcement_message_id = ? WHERE id = ?', [messageId, sessionId]);
   }
 
+  async removeIngameSessionQParticipant(sessionId: number, discordId: string): Promise<void> {
+    await this.ready;
+    await this.run('DELETE FROM ingame_session_q_participants WHERE session_id = ? AND discord_id = ?', [sessionId, discordId]);
+  }
+
   async getIngameSessionParticipants(sessionId: number): Promise<Array<{ id: string; username: string }>> {
     await this.ready;
     const session = await this.get<{ participants: string }>('SELECT participants FROM ingame_sessions WHERE id = ?', [sessionId]);

@@ -228,6 +228,7 @@ export async function execute(interaction: Interaction): Promise<void> {
 
           const displayName = interaction.member && 'displayName' in interaction.member ? (interaction.member as any).displayName : interaction.user.username;
           await client.db.addIngameSessionParticipant(sessionId, interaction.user.id, displayName);
+          await client.db.removeIngameSessionQParticipant(sessionId, interaction.user.id);
           await client.db.resetIngameQMiss(interaction.user.id);
           const updatedParticipants = await client.db.getIngameSessionParticipants(sessionId);
           const qParticipants = await client.db.getIngameSessionQParticipants(sessionId);
