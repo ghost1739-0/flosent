@@ -176,53 +176,6 @@ export async function execute(interaction: Interaction): Promise<void> {
             await interaction.editReply({
               content: '⚠️ Oturum dolu! (20/20)',
             });
-
-            // Auto-close logic for In-Game
-            const message = interaction.message;
-            const currentEmbed = message.embeds[0];
-            if (currentEmbed) {
-              const qParticipants = await client.db.getIngameSessionQParticipants(sessionId);
-
-              const closedEmbed = EmbedBuilder.from(currentEmbed)
-                .setTitle('🎮 In-Game Oturumu - KAPANDI')
-                .setDescription('Oturum 20 kişiye ulaştığı için otomatik olarak kapandı.')
-                .setFields(
-                  {
-                    name: '👥 Katılımcılar',
-                    value: formatMentionList(participants),
-                    inline: false,
-                  },
-                  {
-                    name: '🟦 Q Atanlar',
-                    value: formatMentionList(qParticipants),
-                    inline: false,
-                  },
-                  {
-                    name: '📊 Toplam',
-                    value: `Katılımcı Sayısı: 20/20 (DOLU)`,
-                    inline: false,
-                  },
-                  ...currentEmbed.fields.filter((field) => !INGAME_FIELD_NAMES.includes(field.name))
-                )
-                .setColor('Red');
-
-              const disabledJoin = new ButtonBuilder()
-                .setCustomId('ingame_katil_disabled')
-                .setLabel('🎮 DOLU')
-                .setStyle(ButtonStyle.Success)
-                .setDisabled(true);
-
-              const disabledLeave = new ButtonBuilder()
-                .setCustomId('ingame_ayril_disabled')
-                .setLabel('❌ Ayrıl')
-                .setStyle(ButtonStyle.Danger)
-                .setDisabled(true);
-
-              const disabledRow = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledJoin, disabledLeave);
-
-              await message.edit({ embeds: [closedEmbed], components: [disabledRow] });
-              await client.db.closeIngameSession(sessionId);
-            }
             return;
           }
 
