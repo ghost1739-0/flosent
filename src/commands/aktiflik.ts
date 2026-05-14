@@ -46,7 +46,7 @@ async function applyPenaltyForMissedMember(
   guild: Guild,
   reasonChannelId: string
 ): Promise<void> {
-  const status = client.db.incrementAktiflikMiss(member.id, member.displayName);
+  const status = await client.db.incrementAktiflikMiss(member.id, member.displayName);
 
   const role1 = guild.roles.cache.get(PENALTY_ROLE_1);
   const role2 = guild.roles.cache.get(PENALTY_ROLE_2);
@@ -119,7 +119,7 @@ export const finalizeAktiflikSession = async (
   channelId: string
 ): Promise<void> => {
   console.log(`[Aktiflik] finalizeAktiflikSession basladi. Session: ${sessionId}, Message: ${messageId}`);
-  const session = client.db.getAktiflikSessionByMessageId(messageId);
+  const session = await client.db.getAktiflikSessionByMessageId(messageId);
   if (!session || session.id !== sessionId || session.active !== 1) {
     console.log(`[Aktiflik] Oturum bulunamadi veya zaten kapali. Active: ${session?.active}`);
     return;
@@ -128,14 +128,14 @@ export const finalizeAktiflikSession = async (
   const channel = guild.channels.cache.get(channelId) ?? await guild.channels.fetch(channelId).catch(() => null);
   if (!channel || !('messages' in channel)) {
     console.log(`[Aktiflik] Kanal bulunamadi: ${channelId}`);
-    client.db.closeAktiflikSession(sessionId);
+    await client.db.closeAktiflikSession(sessionId);
     return;
   }
 
   const message = await channel.messages.fetch(messageId).catch(() => null);
   if (!message) {
     console.log(`[Aktiflik] Mesaj bulunamadi: ${messageId}`);
-    client.db.closeAktiflikSession(sessionId);
+    await client.db.closeAktiflikSession(sessionId);
     return;
   }
 
@@ -149,7 +149,7 @@ export const finalizeAktiflikSession = async (
   const roleMembers = role ? Array.from(role.members.values()) : [];
   console.log(`[Aktiflik] Roldeki toplam kisi (fetch sonrasi): ${roleMembers.length}`);
 
-  const participants = client.db.getAktiflikSessionParticipants(sessionId);
+  const participants = await client.db.getAktiflikSessionParticipants(sessionId);
   const joinedIds = new Set(participants.map((p) => p.id));
 
   const joinedMembers = roleMembers.filter((m) => joinedIds.has(m.id));
@@ -158,7 +158,7 @@ export const finalizeAktiflikSession = async (
   console.log(`[Aktiflik] Katilan: ${joinedMembers.length}, Katilmayan: ${missedMembers.length}`);
 
   for (const member of joinedMembers) {
-    client.db.markAktiflikJoined(member.id, member.displayName);
+    await client.db.markAktiflikJoined(member.id, member.displayName);
   }
 
   for (const member of missedMembers) {
@@ -201,7 +201,7 @@ export const finalizeAktiflikSession = async (
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
 
   await message.edit({ embeds: [closedEmbed], components: [row] });
-  client.db.closeAktiflikSession(sessionId);
+  await client.db.closeAktiflikSession(sessionId);
 }
 
 const command: BotCommand = {
@@ -277,7 +277,7 @@ const command: BotCommand = {
         }
       }
 
-      const sessionId = client.db.createAktiflikSession(
+      const sessionId = await client.db.createAktiflikSession(
         message.id,
         message.channelId,
         AKTIFLIK_ROLE_ID,
@@ -300,7 +300,7 @@ const command: BotCommand = {
           .catch((error) => console.error('Aktiflik kapatma hatasi:', error));
       }, durationMs);
 
-      client.db.addBotLog(
+      await client.db.addBotLog(
         'aktiflik_kontrolu_baslatildi',
         interaction.user.id,
         interaction.user.username

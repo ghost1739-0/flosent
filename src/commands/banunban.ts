@@ -17,7 +17,7 @@ const command: BotCommand = {
     try {
       await interaction.deferReply({ ephemeral: true });
       const client = interaction.client as BotClient;
-      const bans = client.db.getActiveBans();
+      const bans = await client.db.getActiveBans();
 
       if (bans.length === 0) {
         await interaction.editReply({

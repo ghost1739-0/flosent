@@ -66,7 +66,7 @@ const command: BotCommand = {
         await channel.send({ embeds: [embed] });
       }
 
-      client.db.addBotLog('kick', user.id, user.username, `Sebep: ${reason}`);
+      await client.db.addBotLog('kick', user.id, user.username, `Sebep: ${reason}`);
 
       await interaction.editReply({
         content: '✅ Kullanıcı başarıyla atıldı!',

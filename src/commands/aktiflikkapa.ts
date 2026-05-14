@@ -26,7 +26,7 @@ const command: BotCommand = {
       }
 
       // Find active sessions
-      const activeSessions = client.db.getActiveAktiflikSessions();
+      const activeSessions = await client.db.getActiveAktiflikSessions();
       console.log(`[AktiflikKapa] Aktif oturumlar sorgulandi. Sayi: ${activeSessions?.length || 0}`);
       
       if (!activeSessions || activeSessions.length === 0) {
@@ -54,7 +54,7 @@ const command: BotCommand = {
         content: '✅ Aktiflik kontrolü başarıyla kapatıldı ve sonuçlar açıklandı.',
       });
 
-      client.db.addBotLog(
+      await client.db.addBotLog(
         'aktiflik_manuel_kapatildi',
         interaction.user.id,
         interaction.user.username

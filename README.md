@@ -123,7 +123,7 @@ npm install && npm run build && npm run db:init && npm start
 
 - **discord.js** v14.17.3 - Discord API client
 - **TypeScript** 5.9.3 - Type-safe JavaScript
-- **SQLite** (better-sqlite3) - Hafif veritabanı
+- **SQLite** (sqlite3) - Hafif veritabanı
 - **Node.js** 18+ - Runtime ortamı
 
 ## Lisans

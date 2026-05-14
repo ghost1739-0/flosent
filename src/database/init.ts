@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+const sqlite3 = require('sqlite3').verbose();
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
@@ -11,22 +11,34 @@ if (!existsSync(dbDir)) {
   mkdirSync(dbDir, { recursive: true });
 }
 
-const db = new Database(dbPath);
+const db = new sqlite3.Database(dbPath);
 
 // Read and execute schema
 const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8');
 const statements = schema.split(';').filter((s) => s.trim());
 
-for (const statement of statements) {
-  if (statement.trim()) {
-    try {
-      db.exec(statement);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Şema çalıştırma hatası:', error);
+db.serialize(() => {
+  for (const statement of statements) {
+    if (!statement.trim()) {
+      continue;
     }
-  }
-}
 
-db.close();
-console.log('✅ Database initialized successfully at:', dbPath);
+    db.exec(statement, (error: Error | null) => {
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error('Şema çalıştırma hatası:', error);
+      }
+    });
+  }
+
+  db.close((error: Error | null) => {
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error('Veritabanı kapatma hatası:', error);
+      process.exit(1);
+      return;
+    }
+
+    console.log('✅ Database initialized successfully at:', dbPath);
+  });
+});

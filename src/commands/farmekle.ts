@@ -56,8 +56,8 @@ const command: BotCommand = {
       }
 
       // Add farm log (using targetUser instead of interaction.user)
-      client.db.addFarmLog(targetUser.id, targetUser.username, amount);
-      client.db.addBotLog('farm_ekle', interaction.user.id, interaction.user.username, `Hedef: ${targetUser.username}, Ot: ${amount}`);
+      await client.db.addFarmLog(targetUser.id, targetUser.username, amount);
+      await client.db.addBotLog('farm_ekle', interaction.user.id, interaction.user.username, `Hedef: ${targetUser.username}, Ot: ${amount}`);
 
       const embed = new EmbedBuilder()
         .setTitle('🌿 Farm Eklendi')

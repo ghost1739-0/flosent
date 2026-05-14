@@ -45,7 +45,7 @@ async function applyPenaltyForMissedMember(
   client: BotClient,
   guild: Guild
 ): Promise<void> {
-  const status = client.db.incrementAktiflikMiss(member.id, member.displayName);
+  const status = await client.db.incrementAktiflikMiss(member.id, member.displayName);
 
   const role1 = guild.roles.cache.get(PENALTY_ROLE_1);
   const role2 = guild.roles.cache.get(PENALTY_ROLE_2);
@@ -101,7 +101,7 @@ async function finalizeAktiflikSessionByRow(
     return;
   }
 
-  const latest = client.db.getAktiflikSessionByMessageId(session.message_id);
+  const latest = await client.db.getAktiflikSessionByMessageId(session.message_id);
   if (!latest || latest.active !== 1 || latest.id !== session.id) {
     return;
   }
@@ -109,13 +109,13 @@ async function finalizeAktiflikSessionByRow(
   const channel = guild.channels.cache.get(session.channel_id)
     ?? await guild.channels.fetch(session.channel_id).catch(() => null);
   if (!channel || !('messages' in channel)) {
-    client.db.closeAktiflikSession(session.id);
+    await client.db.closeAktiflikSession(session.id);
     return;
   }
 
   const message = await channel.messages.fetch(session.message_id).catch(() => null);
   if (!message) {
-    client.db.closeAktiflikSession(session.id);
+    await client.db.closeAktiflikSession(session.id);
     return;
   }
 
@@ -123,13 +123,13 @@ async function finalizeAktiflikSessionByRow(
   const role = guild.roles.cache.get(session.target_role_id);
   const roleMembers = role ? Array.from(role.members.values()) : [];
 
-  const participants = client.db.getAktiflikSessionParticipants(session.id);
+  const participants = await client.db.getAktiflikSessionParticipants(session.id);
   const joinedIds = new Set(participants.map((p) => p.id));
   const joinedMembers = roleMembers.filter((m) => joinedIds.has(m.id));
   const missedMembers = roleMembers.filter((m) => !joinedIds.has(m.id));
 
   for (const member of joinedMembers) {
-    client.db.markAktiflikJoined(member.id, member.displayName);
+    await client.db.markAktiflikJoined(member.id, member.displayName);
   }
 
   for (const member of missedMembers) {
@@ -168,11 +168,11 @@ async function finalizeAktiflikSessionByRow(
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
 
   await message.edit({ embeds: [closedEmbed], components: [row] });
-  client.db.closeAktiflikSession(session.id);
+  await client.db.closeAktiflikSession(session.id);
 }
 
 async function recoverAndScheduleAktiflikSessions(client: BotClient): Promise<void> {
-  const sessions = client.db.getActiveAktiflikSessions();
+  const sessions = await client.db.getActiveAktiflikSessions();
   if (!sessions.length) {
     return;
   }
@@ -189,7 +189,7 @@ async function recoverAndScheduleAktiflikSessions(client: BotClient): Promise<vo
     }
 
     if (!guild) {
-      client.db.closeAktiflikSession(session.id);
+      await client.db.closeAktiflikSession(session.id);
       continue;
     }
 
@@ -209,7 +209,7 @@ async function recoverAndScheduleAktiflikSessions(client: BotClient): Promise<vo
 }
 
 async function sweepExpiredAktiflikSessions(client: BotClient): Promise<void> {
-  const sessions = client.db.getActiveAktiflikSessions();
+  const sessions = await client.db.getActiveAktiflikSessions();
   if (!sessions.length) {
     return;
   }
@@ -230,7 +230,7 @@ async function sweepExpiredAktiflikSessions(client: BotClient): Promise<void> {
     }
 
     if (!guild) {
-      client.db.closeAktiflikSession(session.id);
+      await client.db.closeAktiflikSession(session.id);
       continue;
     }
 

@@ -24,15 +24,15 @@ const command: BotCommand = {
         return;
       }
 
-      const session = client.db.getActiveIngameSession();
+      const session = await client.db.getActiveIngameSession();
       if (!session) {
         await interaction.editReply({ content: '✅ Aktif in-game oturumu bulunmuyor.' });
         return;
       }
 
       // Close in DB
-      client.db.closeIngameSession(session.id);
-      client.db.addBotLog('ingame_oturumu_kapatildi', interaction.user.id, interaction.user.username, `Session kapatıldı id=${session.id}`);
+      await client.db.closeIngameSession(session.id);
+      await client.db.addBotLog('ingame_oturumu_kapatildi', interaction.user.id, interaction.user.username, `Session kapatıldı id=${session.id}`);
 
       // Try to edit the original message to mark closed and remove buttons
       try {

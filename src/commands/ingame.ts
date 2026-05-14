@@ -33,7 +33,7 @@ const command: BotCommand = {
       }
 
       // Check if there's already an active session
-      const activeSession = client.db.getActiveIngameSession();
+      const activeSession = await client.db.getActiveIngameSession();
       if (activeSession) {
         await interaction.editReply({
           content: '⚠️ Zaten aktif bir in-game oturumu var. Lütfen onu kapatın.',
@@ -128,7 +128,7 @@ const command: BotCommand = {
       }
 
       // Create session in database
-      const sessionId = client.db.createIngameSession(message.id, channel.id, interaction.user.id);
+      const sessionId = await client.db.createIngameSession(message.id, channel.id, interaction.user.id);
 
       // Update buttons with correct custom IDs
       const joinButtonReal = new ButtonBuilder()
@@ -147,7 +147,7 @@ const command: BotCommand = {
         components: [rowReal],
       });
 
-      client.db.addBotLog(
+      await client.db.addBotLog(
         'ingame_oturumu_baslatildi',
         interaction.user.id,
         interaction.user.username

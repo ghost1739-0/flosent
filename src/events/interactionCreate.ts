@@ -52,7 +52,7 @@ export async function execute(interaction: Interaction): Promise<void> {
           const displayName = interaction.member && 'displayName' in interaction.member ? (interaction.member as any).displayName : interaction.user.username;
           const parts = customId.split('_');
           const sessionId = Number(parts[2]);
-          const session = client.db.getAktiflikSessionByMessageId(interaction.message.id);
+          const session = await client.db.getAktiflikSessionByMessageId(interaction.message.id);
 
           if (!session || session.active !== 1 || session.id !== sessionId) {
             await interaction.followUp({ content: '⚠️ Bu aktiflik oturumu kapandi.', ephemeral: true });
@@ -64,21 +64,21 @@ export async function execute(interaction: Interaction): Promise<void> {
             return;
           }
 
-          const alreadyInSession = client.db.hasJoinedAktiflikSession(sessionId, interaction.user.id);
+          const alreadyInSession = await client.db.hasJoinedAktiflikSession(sessionId, interaction.user.id);
           if (alreadyInSession) {
             await interaction.followUp({ content: '⚠️ Zaten katıldın.', ephemeral: true });
             return;
           }
 
-          const inserted = client.db.addAktiflikSessionParticipant(sessionId, interaction.user.id, displayName);
+          const inserted = await client.db.addAktiflikSessionParticipant(sessionId, interaction.user.id, displayName);
           if (!inserted) {
             await interaction.followUp({ content: '⚠️ Zaten katıldın.', ephemeral: true });
             return;
           }
 
           // Record click in daily log for audit
-          client.db.addAktiflikLog(interaction.user.id, displayName);
-          client.db.addBotLog('aktiflik_kontrol', interaction.user.id, displayName);
+          await client.db.addAktiflikLog(interaction.user.id, displayName);
+          await client.db.addBotLog('aktiflik_kontrol', interaction.user.id, displayName);
 
           await interaction.followUp({
             content: '✅ Aktifliğin onaylandı!',
@@ -89,7 +89,7 @@ export async function execute(interaction: Interaction): Promise<void> {
           const message = interaction.message;
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
-            const participants = client.db.getAktiflikSessionParticipants(sessionId);
+            const participants = await client.db.getAktiflikSessionParticipants(sessionId);
             const role = interaction.guild?.roles.cache.get('1500135055207567590');
             const total = role?.members.size ?? 0;
             const names = participants
@@ -128,7 +128,7 @@ export async function execute(interaction: Interaction): Promise<void> {
         try {
           await interaction.deferReply({ ephemeral: true });
           const sessionId = parseInt(customId.replace('ingame_katil_', ''), 10);
-          const session = client.db.getActiveIngameSession();
+          const session = await client.db.getActiveIngameSession();
 
           if (!session || session.id !== sessionId) {
             await interaction.editReply({
@@ -137,7 +137,7 @@ export async function execute(interaction: Interaction): Promise<void> {
             return;
           }
 
-          const participants = client.db.getIngameSessionParticipants(sessionId);
+          const participants = await client.db.getIngameSessionParticipants(sessionId);
 
           if (participants.some((p) => p.id === interaction.user.id)) {
             await interaction.editReply({
@@ -191,14 +191,14 @@ export async function execute(interaction: Interaction): Promise<void> {
               const disabledRow = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledJoin, disabledLeave);
 
               await message.edit({ embeds: [closedEmbed], components: [disabledRow] });
-              client.db.closeIngameSession(sessionId);
+              await client.db.closeIngameSession(sessionId);
             }
             return;
           }
 
           const displayName = interaction.member && 'displayName' in interaction.member ? (interaction.member as any).displayName : interaction.user.username;
-          client.db.addIngameSessionParticipant(sessionId, interaction.user.id, displayName);
-          const updatedParticipants = client.db.getIngameSessionParticipants(sessionId);
+          await client.db.addIngameSessionParticipant(sessionId, interaction.user.id, displayName);
+          const updatedParticipants = await client.db.getIngameSessionParticipants(sessionId);
 
           const message = interaction.message;
           const currentEmbed = message.embeds[0];
@@ -246,7 +246,7 @@ export async function execute(interaction: Interaction): Promise<void> {
         try {
           await interaction.deferReply({ ephemeral: true });
           const sessionId = parseInt(customId.replace('ingame_ayril_', ''), 10);
-          const session = client.db.getActiveIngameSession();
+          const session = await client.db.getActiveIngameSession();
 
           if (!session || session.id !== sessionId) {
             await interaction.editReply({
@@ -256,8 +256,8 @@ export async function execute(interaction: Interaction): Promise<void> {
           }
 
           const displayName = interaction.member && 'displayName' in interaction.member ? (interaction.member as any).displayName : interaction.user.username;
-          client.db.removeIngameSessionParticipant(sessionId, interaction.user.id);
-          const updatedParticipants = client.db.getIngameSessionParticipants(sessionId);
+          await client.db.removeIngameSessionParticipant(sessionId, interaction.user.id);
+          const updatedParticipants = await client.db.getIngameSessionParticipants(sessionId);
 
           const message = interaction.message;
           const currentEmbed = message.embeds[0];
@@ -316,7 +316,7 @@ export async function execute(interaction: Interaction): Promise<void> {
             return;
           }
 
-          const bans = client.db.getActiveBans();
+          const bans = await client.db.getActiveBans();
           const itemsPerPage = 5;
           const totalPages = Math.ceil(bans.length / itemsPerPage);
           const currentPage = parseInt(parts[4] ?? '1', 10);
@@ -364,7 +364,7 @@ export async function execute(interaction: Interaction): Promise<void> {
         try {
           await interaction.deferReply({ ephemeral: true });
           const banId = parseInt(interaction.values[0], 10);
-          const ban = client.db.getBanById(banId);
+          const ban = await client.db.getBanById(banId);
 
           if (!ban) {
             await interaction.editReply({
@@ -373,8 +373,8 @@ export async function execute(interaction: Interaction): Promise<void> {
             return;
           }
 
-          client.db.unbanUser(banId);
-          client.db.addBotLog('unban', ban.discord_id, ban.username, `Ban kaldırıldı: ${ban.reason}`);
+          await client.db.unbanUser(banId);
+          await client.db.addBotLog('unban', ban.discord_id, ban.username, `Ban kaldırıldı: ${ban.reason}`);
 
           const guild = interaction.guild;
           if (guild) {

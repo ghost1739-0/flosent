@@ -71,7 +71,7 @@ const command: BotCommand = {
         await channel.send({ embeds: [embed] });
       }
 
-      client.db.addBotLog('timeout', user.id, user.username, `Süre: ${seconds} saniye`);
+      await client.db.addBotLog('timeout', user.id, user.username, `Süre: ${seconds} saniye`);
 
       await interaction.editReply({
         content: '✅ Timeout başarıyla uygulandı!',

@@ -31,7 +31,7 @@ const command: BotCommand = {
       }
 
       // Check if user is already banned
-      if (client.db.isBanned(user.id)) {
+      if (await client.db.isBanned(user.id)) {
         await interaction.editReply({
           content: '⚠️ Bu kullanıcı zaten banlı.',
         });
@@ -46,7 +46,7 @@ const command: BotCommand = {
       }
 
       // Add to database
-      client.db.addBan(user.id, user.username, reason, interaction.user.username);
+      await client.db.addBan(user.id, user.username, reason, interaction.user.username);
 
       // Ban from Discord
       try {
@@ -72,7 +72,7 @@ const command: BotCommand = {
         await channel.send({ embeds: [embed] });
       }
 
-      client.db.addBotLog('ban', user.id, user.username, `Sebep: ${reason}`);
+      await client.db.addBotLog('ban', user.id, user.username, `Sebep: ${reason}`);
 
       await interaction.editReply({
         content: '✅ Kullanıcı başarıyla banlandı!',

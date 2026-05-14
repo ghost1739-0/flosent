@@ -15,7 +15,7 @@ const command: BotCommand = {
     try {
       await interaction.deferReply({ ephemeral: true });
       const client = interaction.client as BotClient;
-      const leaderboard = client.db.getFarmLeaderboard();
+      const leaderboard = await client.db.getFarmLeaderboard();
 
       if (leaderboard.length === 0) {
         await interaction.editReply({
