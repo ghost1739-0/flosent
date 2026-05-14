@@ -3,6 +3,31 @@ import type { BotEvent, BotClient } from '../types';
 import { finalizeAktiflikSession } from '../commands/aktiflik';
 import { formatMentionList } from '../utils/helpers';
 
+const INGAME_FIELD_NAMES = ['👥 Katılımcılar', '🟦 Q Atanlar', '📊 Toplam'];
+
+function updateIngameEmbed(currentEmbed: any, participants: Array<{ id: string; username: string }>, qParticipants: Array<{ id: string; username: string }>, total = 20) {
+  const preservedFields = currentEmbed.fields.filter((field: any) => !INGAME_FIELD_NAMES.includes(field.name));
+
+  return EmbedBuilder.from(currentEmbed).setFields(
+    {
+      name: '👥 Katılımcılar',
+      value: formatMentionList(participants),
+      inline: false,
+    },
+    {
+      name: '🟦 Q Atanlar',
+      value: formatMentionList(qParticipants),
+      inline: false,
+    },
+    {
+      name: '📊 Toplam',
+      value: `Katılımcı Sayısı: ${participants.length}/${total}`,
+      inline: false,
+    },
+    ...preservedFields
+  );
+}
+
 const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
 const FARMVER_CHANNEL_ID = '1500452813942030407';
 
@@ -176,7 +201,8 @@ export async function execute(interaction: Interaction): Promise<void> {
                     name: '📊 Toplam',
                     value: `Katılımcı Sayısı: 20/20 (DOLU)`,
                     inline: false,
-                  }
+                  },
+                  ...currentEmbed.fields.filter((field) => !INGAME_FIELD_NAMES.includes(field.name))
                 )
                 .setColor('Red');
 
@@ -209,24 +235,7 @@ export async function execute(interaction: Interaction): Promise<void> {
           const message = interaction.message;
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
-            const embed = EmbedBuilder.from(currentEmbed)
-              .setFields(
-                {
-                  name: '👥 Katılımcılar',
-                  value: formatMentionList(updatedParticipants),
-                  inline: false,
-                },
-                {
-                  name: '🟦 Q Atanlar',
-                  value: formatMentionList(qParticipants),
-                  inline: false,
-                },
-                {
-                  name: '📊 Toplam',
-                  value: `Katılımcı Sayısı: ${updatedParticipants.length}/20`,
-                  inline: false,
-                }
-              );
+            const embed = updateIngameEmbed(currentEmbed, updatedParticipants, qParticipants);
             await message.edit({ embeds: [embed] });
           }
 
@@ -263,24 +272,7 @@ export async function execute(interaction: Interaction): Promise<void> {
           const message = interaction.message;
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
-            const embed = EmbedBuilder.from(currentEmbed)
-              .setFields(
-                {
-                  name: '👥 Katılımcılar',
-                  value: formatMentionList(updatedParticipants),
-                  inline: false,
-                },
-                {
-                  name: '🟦 Q Atanlar',
-                  value: formatMentionList(qParticipants),
-                  inline: false,
-                },
-                {
-                  name: '📊 Toplam',
-                  value: `Katılımcı Sayısı: ${updatedParticipants.length}/20`,
-                  inline: false,
-                }
-              );
+            const embed = updateIngameEmbed(currentEmbed, updatedParticipants, qParticipants);
             await message.edit({ embeds: [embed] });
           }
 

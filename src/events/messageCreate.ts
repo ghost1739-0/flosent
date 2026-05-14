@@ -26,21 +26,21 @@ export async function execute(message: Message): Promise<void> {
   const logChannel = guild.channels.cache.get(LOG_CHANNEL_ID)
     ?? await guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
 
-  const activeSession = await client.db.getActiveIngameSession();
-  if (!activeSession) {
+  const session = await client.db.getLatestIngameSession();
+  if (!session) {
     if (logChannel && 'send' in logChannel) {
       await logChannel.send({ content: `<@${message.author.id}> q yazdı ama aktif bir ingame oturumu yok.` });
     }
     return;
   }
 
-  const participants = await client.db.getIngameSessionParticipants(activeSession.id);
+  const participants = await client.db.getIngameSessionParticipants(session.id);
   const participantIds = new Set(participants.map((participant) => participant.id));
 
-  const qAdded = await client.db.addIngameSessionQParticipant(activeSession.id, message.author.id, message.author.username);
-  const qParticipants = await client.db.getIngameSessionQParticipants(activeSession.id);
+  const qAdded = await client.db.addIngameSessionQParticipant(session.id, message.author.id, message.author.username);
 
   if (participantIds.has(message.author.id)) {
+    await client.db.removeIngameSessionParticipant(session.id, message.author.id);
     await client.db.resetIngameQMiss(message.author.id);
   } else {
     const miss = await client.db.incrementIngameQMiss(message.author.id, message.author.username);
@@ -53,18 +53,23 @@ export async function execute(message: Message): Promise<void> {
     }
   }
 
-  const activeChannel = guild.channels.cache.get(activeSession.channel_id)
-    ?? await guild.channels.fetch(activeSession.channel_id).catch(() => null);
+  const updatedParticipants = await client.db.getIngameSessionParticipants(session.id);
+  const qParticipants = await client.db.getIngameSessionQParticipants(session.id);
+  const availableSlots = Math.max(20 - updatedParticipants.length, 0);
+
+  const activeChannel = guild.channels.cache.get(session.channel_id)
+    ?? await guild.channels.fetch(session.channel_id).catch(() => null);
 
   if (activeChannel && 'messages' in activeChannel) {
-    const messageTarget = await activeChannel.messages.fetch(activeSession.message_id).catch(() => null);
+    const messageTarget = await activeChannel.messages.fetch(session.message_id).catch(() => null);
     if (messageTarget) {
       const currentEmbed = messageTarget.embeds[0];
       if (currentEmbed) {
+        const preservedFields = currentEmbed.fields.filter((field) => !['👥 Katılımcılar', '🟦 Q Atanlar', '📊 Toplam'].includes(field.name));
         const updatedEmbed = EmbedBuilder.from(currentEmbed).setFields(
           {
             name: '👥 Katılımcılar',
-            value: formatMentionList(participants),
+            value: formatMentionList(updatedParticipants),
             inline: false,
           },
           {
@@ -74,9 +79,10 @@ export async function execute(message: Message): Promise<void> {
           },
           {
             name: '📊 Toplam',
-            value: `Katılımcı Sayısı: ${participants.length}/20`,
+            value: `Katılımcı Sayısı: ${updatedParticipants.length}/20`,
             inline: false,
-          }
+          },
+          ...preservedFields
         );
 
         await messageTarget.edit({ embeds: [updatedEmbed] });
@@ -84,9 +90,9 @@ export async function execute(message: Message): Promise<void> {
     }
   }
 
-  if (activeChannel && 'send' in activeChannel && qAdded) {
+  if (session.active === 1 && activeChannel && 'send' in activeChannel && qAdded) {
     await activeChannel.send({
-      content: `ingamee ${qParticipants.length} kişilik yer var gelmek isteyen gelsin.`,
+      content: `ingamee ${availableSlots} kişilik yer var gelmek isteyen gelsin.`,
       allowedMentions: { parse: [] },
     });
   }

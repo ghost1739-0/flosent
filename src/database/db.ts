@@ -428,6 +428,11 @@ export class DatabaseManager {
     return this.get('SELECT id, message_id, channel_id, participants, created_by, created_at FROM ingame_sessions WHERE active = 1 ORDER BY created_at DESC LIMIT 1') as Promise<any>;
   }
 
+  async getLatestIngameSession(): Promise<{ id: number; message_id: string; channel_id: string; participants: string; created_by: string; created_at: string; active: number } | undefined> {
+    await this.ready;
+    return this.get('SELECT id, message_id, channel_id, participants, created_by, created_at, active FROM ingame_sessions ORDER BY created_at DESC LIMIT 1') as Promise<any>;
+  }
+
   async addIngameSessionParticipant(sessionId: number, discordId: string, username: string): Promise<void> {
     await this.ready;
     const session = await this.get<{ participants: string }>('SELECT participants FROM ingame_sessions WHERE id = ?', [sessionId]);
