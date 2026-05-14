@@ -30,10 +30,6 @@ const command: BotCommand = {
         return;
       }
 
-      // Close in DB
-      await client.db.closeIngameSession(session.id);
-      await client.db.addBotLog('ingame_oturumu_kapatildi', interaction.user.id, interaction.user.username, `Session kapatıldı id=${session.id}`);
-
       // Try to edit the original message to mark closed and remove buttons
       try {
         const channel = await client.channels.fetch(session.channel_id).catch(() => null) as any;
@@ -56,6 +52,9 @@ const command: BotCommand = {
       } catch {
         // ignore errors while trying to edit message
       }
+
+      await client.db.closeIngameSession(session.id);
+      await client.db.addBotLog('ingame_oturumu_kapatildi', interaction.user.id, interaction.user.username, `Session kapatıldı id=${session.id}`);
 
       await interaction.editReply({ content: `✅ In-game oturumu kapatıldı. (Session ID: ${session.id}) — ${turkishDate()}` });
     } catch (error) {

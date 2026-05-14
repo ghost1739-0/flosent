@@ -92,11 +92,28 @@ export async function execute(message: Message): Promise<void> {
     }
   }
 
-  if (session.active === 1 && activeChannel && 'send' in activeChannel && (qAdded || wasParticipant)) {
-    await activeChannel.send({
-      content: `ingamee ${availableSlots} kişilik yer var gelmek isteyen gelsin.`,
-      allowedMentions: { parse: [] },
-    });
+  if (session.active === 1 && activeChannel && ('send' in activeChannel || 'messages' in activeChannel) && (qAdded || wasParticipant)) {
+    const announcementContent = `ingamee ${availableSlots} kişilik yer var gelmek isteyen gelsin.`;
+    const announcementMessageId = session.last_q_announcement_message_id;
+
+    if (announcementMessageId && 'messages' in activeChannel) {
+      const previousAnnouncement = await activeChannel.messages.fetch(announcementMessageId).catch(() => null);
+      if (previousAnnouncement) {
+        await previousAnnouncement.edit({ content: announcementContent, allowedMentions: { parse: [] } });
+      } else {
+        const newAnnouncement = await activeChannel.send({
+          content: announcementContent,
+          allowedMentions: { parse: [] },
+        });
+        await client.db.setIngameSessionAnnouncementMessageId(session.id, newAnnouncement.id);
+      }
+    } else if ('send' in activeChannel) {
+      const newAnnouncement = await activeChannel.send({
+        content: announcementContent,
+        allowedMentions: { parse: [] },
+      });
+      await client.db.setIngameSessionAnnouncementMessageId(session.id, newAnnouncement.id);
+    }
   }
 
   if (logChannel && 'send' in logChannel) {

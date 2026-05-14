@@ -42,6 +42,7 @@ export class DatabaseManager {
     await this.ensureCoreTables();
     await this.ensureAktiflikSchema();
     await this.ensureAktiflikRuntimeTables();
+    await this.ensureIngameSchema();
   }
 
   private run(sql: string, params: unknown[] = []): Promise<SqliteRunResult> {
@@ -215,6 +216,19 @@ export class DatabaseManager {
 
     await this.exec('CREATE INDEX IF NOT EXISTS idx_aktiflik_sessions_active ON aktiflik_sessions(active)');
     await this.exec('CREATE INDEX IF NOT EXISTS idx_aktiflik_participants_session ON aktiflik_session_participants(session_id)');
+  }
+
+  private async ensureIngameSchema(): Promise<void> {
+    try {
+      const info = await this.all<{ name: string }>("PRAGMA table_info('ingame_sessions')");
+      const hasAnnouncementColumn = info.some((column) => column.name === 'last_q_announcement_message_id');
+      if (!hasAnnouncementColumn) {
+        await this.exec('ALTER TABLE ingame_sessions ADD COLUMN last_q_announcement_message_id TEXT');
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('ensureIngameSchema error:', err);
+    }
   }
 
   // ============ AKTIFLIK LOGS ============
@@ -419,18 +433,18 @@ export class DatabaseManager {
   // ============ INGAME SESSIONS ============
   async createIngameSession(messageId: string, channelId: string, createdBy: string): Promise<number> {
     await this.ready;
-    const result = await this.run('INSERT INTO ingame_sessions (message_id, channel_id, participants, created_by, created_at, active) VALUES (?, ?, ?, ?, ?, 1)', [messageId, channelId, JSON.stringify([]), createdBy, new Date().toISOString()]);
+    const result = await this.run('INSERT INTO ingame_sessions (message_id, channel_id, participants, last_q_announcement_message_id, created_by, created_at, active) VALUES (?, ?, ?, ?, ?, ?, 1)', [messageId, channelId, JSON.stringify([]), null, createdBy, new Date().toISOString()]);
     return result.lastID;
   }
 
-  async getActiveIngameSession(): Promise<{ id: number; message_id: string; channel_id: string; participants: string; created_by: string; created_at: string } | undefined> {
+  async getActiveIngameSession(): Promise<{ id: number; message_id: string; channel_id: string; participants: string; last_q_announcement_message_id: string | null; created_by: string; created_at: string } | undefined> {
     await this.ready;
-    return this.get('SELECT id, message_id, channel_id, participants, created_by, created_at FROM ingame_sessions WHERE active = 1 ORDER BY created_at DESC LIMIT 1') as Promise<any>;
+    return this.get('SELECT id, message_id, channel_id, participants, last_q_announcement_message_id, created_by, created_at FROM ingame_sessions WHERE active = 1 ORDER BY created_at DESC LIMIT 1') as Promise<any>;
   }
 
-  async getLatestIngameSession(): Promise<{ id: number; message_id: string; channel_id: string; participants: string; created_by: string; created_at: string; active: number } | undefined> {
+  async getLatestIngameSession(): Promise<{ id: number; message_id: string; channel_id: string; participants: string; last_q_announcement_message_id: string | null; created_by: string; created_at: string; active: number } | undefined> {
     await this.ready;
-    return this.get('SELECT id, message_id, channel_id, participants, created_by, created_at, active FROM ingame_sessions ORDER BY created_at DESC LIMIT 1') as Promise<any>;
+    return this.get('SELECT id, message_id, channel_id, participants, last_q_announcement_message_id, created_by, created_at, active FROM ingame_sessions ORDER BY created_at DESC LIMIT 1') as Promise<any>;
   }
 
   async addIngameSessionParticipant(sessionId: number, discordId: string, username: string): Promise<void> {
@@ -453,6 +467,11 @@ export class DatabaseManager {
       const filtered = participants.filter((p) => p.id !== discordId);
       await this.run('UPDATE ingame_sessions SET participants = ? WHERE id = ?', [JSON.stringify(filtered), sessionId]);
     }
+  }
+
+  async setIngameSessionAnnouncementMessageId(sessionId: number, messageId: string): Promise<void> {
+    await this.ready;
+    await this.run('UPDATE ingame_sessions SET last_q_announcement_message_id = ? WHERE id = ?', [messageId, sessionId]);
   }
 
   async getIngameSessionParticipants(sessionId: number): Promise<Array<{ id: string; username: string }>> {

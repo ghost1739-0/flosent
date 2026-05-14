@@ -10,7 +10,7 @@ import {
 import type { BotCommand, BotClient } from '../types';
 import { turkishDate } from '../utils/helpers';
 
-const INGAME_CHANNEL_ID = '1500135056637689939';
+const INGAME_CHANNEL_ID = '1500135056440819837';
 
 const command: BotCommand = {
   data: new SlashCommandBuilder()
