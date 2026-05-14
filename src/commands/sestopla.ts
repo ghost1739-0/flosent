@@ -47,7 +47,7 @@ const command: BotCommand = {
 
       let movedCount = 0;
 
-      // Iterate over all voice states (everyone in voice, regardless of channel)
+      // Iterate over all voice states
       for (const [memberId, voiceState] of guild.voiceStates.cache) {
         const member = voiceState.member;
         if (!member) continue;

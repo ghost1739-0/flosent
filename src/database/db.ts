@@ -145,6 +145,13 @@ export class DatabaseManager {
         details TEXT,
         logged_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS ingame_q_misses (
+        discord_id TEXT PRIMARY KEY,
+        username TEXT NOT NULL,
+        miss_count INTEGER DEFAULT 0,
+        updated_at TEXT NOT NULL
+      );
     `);
   }
 
@@ -447,6 +454,34 @@ export class DatabaseManager {
   async closeIngameSession(sessionId: number): Promise<void> {
     await this.ready;
     await this.run('UPDATE ingame_sessions SET active = 0 WHERE id = ?', [sessionId]);
+  }
+
+  // ============ INGAME Q TRACKING ============
+  async incrementIngameQMiss(discordId: string, username: string): Promise<{ miss_count: number }> {
+    await this.ready;
+    const existing = await this.get<{ miss_count: number }>('SELECT miss_count FROM ingame_q_misses WHERE discord_id = ? LIMIT 1', [discordId]);
+    const now = new Date().toISOString();
+
+    if (!existing) {
+      await this.run(
+        'INSERT INTO ingame_q_misses (discord_id, username, miss_count, updated_at) VALUES (?, ?, 1, ?)',
+        [discordId, username, now]
+      );
+      return { miss_count: 1 };
+    }
+
+    const missCount = Number(existing.miss_count || 0) + 1;
+    await this.run(
+      'UPDATE ingame_q_misses SET username = ?, miss_count = ?, updated_at = ? WHERE discord_id = ?',
+      [username, missCount, now, discordId]
+    );
+
+    return { miss_count: missCount };
+  }
+
+  async resetIngameQMiss(discordId: string): Promise<void> {
+    await this.ready;
+    await this.run('DELETE FROM ingame_q_misses WHERE discord_id = ?', [discordId]);
   }
 
   // ============ BOT LOGS ============

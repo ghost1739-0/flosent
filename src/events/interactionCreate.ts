@@ -198,6 +198,7 @@ export async function execute(interaction: Interaction): Promise<void> {
 
           const displayName = interaction.member && 'displayName' in interaction.member ? (interaction.member as any).displayName : interaction.user.username;
           await client.db.addIngameSessionParticipant(sessionId, interaction.user.id, displayName);
+          await client.db.resetIngameQMiss(interaction.user.id);
           const updatedParticipants = await client.db.getIngameSessionParticipants(sessionId);
 
           const message = interaction.message;
@@ -222,12 +223,6 @@ export async function execute(interaction: Interaction): Promise<void> {
               );
             await message.edit({ embeds: [embed] });
           }
-
-          // Public @everyone notice
-          // const channel = message.channel;
-          // if (channel && 'send' in channel) {
-          //   await channel.send({ content: `@everyone ${displayName} oturuma katıldı.`, allowedMentions: { parse: ['everyone'] } });
-          // } // TODO: Re-enable @everyone notification later
 
           await interaction.editReply({
             content: '✅ Oturuma katıldın!',
@@ -281,12 +276,6 @@ export async function execute(interaction: Interaction): Promise<void> {
               );
             await message.edit({ embeds: [embed] });
           }
-
-          // Public @everyone notice
-          // const channel = message.channel;
-          // if (channel && 'send' in channel) {
-          //   await channel.send({ content: `@everyone ${displayName} oturumdan ayrıldı.`, allowedMentions: { parse: ['everyone'] } });
-          // } // TODO: Re-enable @everyone notification later
 
           await interaction.editReply({
             content: '✅ Oturumdan ayrıldın!',
