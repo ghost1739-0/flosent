@@ -2,7 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const { join } = require('path');
 
 try {
-  const dbPath = join(process.cwd(), 'data', 'database.db');
+  const dbPath = join(process.cwd(), 'data', 'database.sqlite');
   const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
 
   db.all(

@@ -1,4 +1,5 @@
-import { join } from 'path';
+import { dirname, resolve } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 
 type SqliteRunResult = { changes: number; lastID: number };
 
@@ -10,9 +11,30 @@ export class DatabaseManager {
   private ready: Promise<void>;
 
   constructor() {
-    const dbPath = join(process.cwd(), 'data', 'database.db');
-    this.db = new sqlite3.Database(dbPath);
-    this.ready = this.initialize();
+    const dbPath = resolve(process.cwd(), 'data', 'database.sqlite');
+    const dbDir = dirname(dbPath);
+
+    try {
+      if (!existsSync(dbDir)) {
+        mkdirSync(dbDir, { recursive: true });
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Database directory create error:', error);
+    }
+
+    this.db = new sqlite3.Database(dbPath, (error: Error | null) => {
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error('Database open error:', error);
+      }
+    });
+
+    this.ready = this.initialize().catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error('Database initialization error:', error);
+      throw error;
+    });
   }
 
   private async initialize(): Promise<void> {

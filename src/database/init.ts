@@ -1,17 +1,33 @@
 const sqlite3 = require('sqlite3').verbose();
+import { dirname, resolve } from 'path';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 
 const dbDir = join(process.cwd(), 'data');
-const dbPath = join(dbDir, 'database.db');
+const dbPath = resolve(dbDir, 'database.sqlite');
 
 // Create data directory if it doesn't exist
 if (!existsSync(dbDir)) {
   mkdirSync(dbDir, { recursive: true });
 }
 
-const db = new sqlite3.Database(dbPath);
+try {
+  const parentDir = dirname(dbPath);
+  if (!existsSync(parentDir)) {
+    mkdirSync(parentDir, { recursive: true });
+  }
+} catch (error) {
+  console.error('Veritabanı dizini oluşturulamadı:', error);
+  process.exit(1);
+}
+
+const db = new sqlite3.Database(dbPath, (error: Error | null) => {
+  if (error) {
+    console.error('Veritabanı açılamadı:', error);
+    process.exit(1);
+  }
+});
 
 // Read and execute schema
 const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8');
