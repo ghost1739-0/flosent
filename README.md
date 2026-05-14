@@ -1,15 +1,12 @@
 # FlosEnt Discord Bot
 
-FiveM GunRP ekibi için geliştirilmiş Discord botu. Aktiflik kontrolü, ban yönetimi, oyun oturumları ve farm takibi gibi özellikleri içerir.
+FiveM GunRP ekibi için geliştirilmiş Discord botu. Aktiflik kontrolü, oyun oturumları ve ses toplama gibi özellikleri içerir.
 
 ## Özellikler
 
-- 🎮 **In-Game Oturumları** - Oyun oturumları başlatın ve katılımcıları yönetin (Max 20 kişi)
+- 🎮 **In-Game Oturumları** - Oyun oturumları başlatın ve katılımcıları yönetin
 - ✅ **Aktiflik Kontrolü** - Üyeleri aktifliğini onaylaması için çağırın
-- 🔨 **Ban Yönetimi** - Kullanıcıları banla, unban yap ve ban listesini görüntüle
-- ⏱️ **Timeout** - Kullanıcılara zaman aşımı uygula
-- 👢 **Kick** - Kullanıcıları sunucudan at
-- 🌾 **Farm Sistemi** - Farm leaderboardını takip et ve farm kaydı tut
+- 🔊 **Ses Toplama** - Kullanıcıları tek sese toplayın ve mikrofonlarını kapatın
 
 ## Kurulum
 
@@ -42,8 +39,6 @@ CLIENT_ID=your_client_id_here
 GUILD_ID=your_guild_id_here
 AKTIFLIK_CHANNEL_ID=channel_id
 AKTIFLIK_ROLE_ID=role_id
-FARM_CHANNEL_ID=channel_id
-FARMVER_CHANNEL_ID=channel_id
 INGAME_CHANNEL_ID=channel_id
 ```
 
@@ -74,18 +69,8 @@ npm start
 ### ✅ Aktiflik
 - `/aktiflik` - Aktiflik kontrolü başlat
 
-### 🔨 Ban Yönetimi
-- `/ban <kullanıcı> <sebep>` - Kullanıcıyı banla
-- `/banliste` - Aktif ban listesini görüntüle
-- `/banunban` - Banlı kullanıcıyı unban yap
-
-### ⏱️ Moderasyon
-- `/timeout <kullanıcı> <sure>` - Kullanıcıya timeout uygula
-- `/kick <kullanıcı> [sebep]` - Kullanıcıyı sunucudan at
-
-### 🌾 Farm
-- `/farm` - Farm leaderboardını görüntüle
-- `/farmver <miktar>` - Farm miktarı kaydet (FARMVER_CHANNEL_ID'de kullanılabilir)
+### 🔊 Ses Toplama
+- `/sestopla` - Kullanıcıları belirlenen sese taşır ve mikrofonlarını kapatır
 
 ## Render'de Dağıtım
 
