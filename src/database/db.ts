@@ -152,6 +152,15 @@ export class DatabaseManager {
         miss_count INTEGER DEFAULT 0,
         updated_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS ingame_session_q_participants (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL,
+        discord_id TEXT NOT NULL,
+        username TEXT NOT NULL,
+        joined_at TEXT NOT NULL,
+        UNIQUE(session_id, discord_id)
+      );
     `);
   }
 
@@ -454,9 +463,27 @@ export class DatabaseManager {
   async closeIngameSession(sessionId: number): Promise<void> {
     await this.ready;
     await this.run('UPDATE ingame_sessions SET active = 0 WHERE id = ?', [sessionId]);
+    await this.run('DELETE FROM ingame_session_q_participants WHERE session_id = ?', [sessionId]);
   }
 
   // ============ INGAME Q TRACKING ============
+  async addIngameSessionQParticipant(sessionId: number, discordId: string, username: string): Promise<boolean> {
+    await this.ready;
+    const result = await this.run(
+      'INSERT OR IGNORE INTO ingame_session_q_participants (session_id, discord_id, username, joined_at) VALUES (?, ?, ?, ?)',
+      [sessionId, discordId, username, new Date().toISOString()]
+    );
+    return result.changes > 0;
+  }
+
+  async getIngameSessionQParticipants(sessionId: number): Promise<Array<{ id: string; username: string; joined_at: string }>> {
+    await this.ready;
+    return this.all(
+      'SELECT discord_id as id, username, joined_at FROM ingame_session_q_participants WHERE session_id = ? ORDER BY joined_at ASC',
+      [sessionId]
+    );
+  }
+
   async incrementIngameQMiss(discordId: string, username: string): Promise<{ miss_count: number }> {
     await this.ready;
     const existing = await this.get<{ miss_count: number }>('SELECT miss_count FROM ingame_q_misses WHERE discord_id = ? LIMIT 1', [discordId]);

@@ -1,5 +1,6 @@
-import { Message } from 'discord.js';
+import { EmbedBuilder, Message } from 'discord.js';
 import type { BotClient, BotEvent } from '../types';
+import { formatMentionList } from '../utils/helpers';
 
 const Q_CHANNEL_ID = '1500135056847409175';
 const LOG_CHANNEL_ID = '1500440719058276482';
@@ -26,8 +27,18 @@ export async function execute(message: Message): Promise<void> {
     ?? await guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
 
   const activeSession = await client.db.getActiveIngameSession();
-  const participants = activeSession ? await client.db.getIngameSessionParticipants(activeSession.id) : [];
+  if (!activeSession) {
+    if (logChannel && 'send' in logChannel) {
+      await logChannel.send({ content: `<@${message.author.id}> q yazdı ama aktif bir ingame oturumu yok.` });
+    }
+    return;
+  }
+
+  const participants = await client.db.getIngameSessionParticipants(activeSession.id);
   const participantIds = new Set(participants.map((participant) => participant.id));
+
+  const qAdded = await client.db.addIngameSessionQParticipant(activeSession.id, message.author.id, message.author.username);
+  const qParticipants = await client.db.getIngameSessionQParticipants(activeSession.id);
 
   if (participantIds.has(message.author.id)) {
     await client.db.resetIngameQMiss(message.author.id);
@@ -42,17 +53,42 @@ export async function execute(message: Message): Promise<void> {
     }
   }
 
-  if (activeSession) {
-    const activeChannel = guild.channels.cache.get(activeSession.channel_id)
-      ?? await guild.channels.fetch(activeSession.channel_id).catch(() => null);
-    const waitingCount = await client.db.getIngameQWaitingCount();
+  const activeChannel = guild.channels.cache.get(activeSession.channel_id)
+    ?? await guild.channels.fetch(activeSession.channel_id).catch(() => null);
 
-    if (activeChannel && 'send' in activeChannel && waitingCount > 0) {
-      await activeChannel.send({
-        content: `ingamee ${waitingCount} kişilik yer var gelmek isteyen gelsin.`,
-        allowedMentions: { parse: [] },
-      });
+  if (activeChannel && 'messages' in activeChannel) {
+    const messageTarget = await activeChannel.messages.fetch(activeSession.message_id).catch(() => null);
+    if (messageTarget) {
+      const currentEmbed = messageTarget.embeds[0];
+      if (currentEmbed) {
+        const updatedEmbed = EmbedBuilder.from(currentEmbed).setFields(
+          {
+            name: '👥 Katılımcılar',
+            value: formatMentionList(participants),
+            inline: false,
+          },
+          {
+            name: '🟦 Q Atanlar',
+            value: formatMentionList(qParticipants),
+            inline: false,
+          },
+          {
+            name: '📊 Toplam',
+            value: `Katılımcı Sayısı: ${participants.length}/20`,
+            inline: false,
+          }
+        );
+
+        await messageTarget.edit({ embeds: [updatedEmbed] });
+      }
     }
+  }
+
+  if (activeChannel && 'send' in activeChannel && qAdded) {
+    await activeChannel.send({
+      content: `ingamee ${qParticipants.length} kişilik yer var gelmek isteyen gelsin.`,
+      allowedMentions: { parse: [] },
+    });
   }
 
   if (logChannel && 'send' in logChannel) {

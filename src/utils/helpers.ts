@@ -28,3 +28,28 @@ export const createSuccessEmbed = (title: string, description: string): EmbedBui
     .setDescription(description)
     .setColor('Green');
 };
+
+export const formatMentionList = (
+  items: Array<{ id: string; username: string }>,
+  emptyLabel = 'Yok'
+): string => {
+  if (!items.length) {
+    return emptyLabel;
+  }
+
+  const lines: string[] = [];
+  for (const item of items) {
+    const line = `<@${item.id}>`;
+    const candidate = [...lines, line].join('\n');
+    if (candidate.length > 1000) {
+      break;
+    }
+    lines.push(line);
+  }
+
+  if (items.length > lines.length) {
+    lines.push(`... ve ${items.length - lines.length} kişi daha`);
+  }
+
+  return lines.join('\n');
+};

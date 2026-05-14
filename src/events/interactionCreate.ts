@@ -1,6 +1,7 @@
 import { Interaction, EmbedBuilder, Guild, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import type { BotEvent, BotClient } from '../types';
 import { finalizeAktiflikSession } from '../commands/aktiflik';
+import { formatMentionList } from '../utils/helpers';
 
 const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
 const FARMVER_CHANNEL_ID = '1500452813942030407';
@@ -155,9 +156,7 @@ export async function execute(interaction: Interaction): Promise<void> {
             const message = interaction.message;
             const currentEmbed = message.embeds[0];
             if (currentEmbed) {
-              const participantList = participants
-                .map((p, i) => `${i + 1}. ` + (p.id ? `<@${p.id}>` : p.username))
-                .join('\n') || 'Katılımcı yok';
+              const qParticipants = await client.db.getIngameSessionQParticipants(sessionId);
 
               const closedEmbed = EmbedBuilder.from(currentEmbed)
                 .setTitle('🎮 In-Game Oturumu - KAPANDI')
@@ -165,7 +164,12 @@ export async function execute(interaction: Interaction): Promise<void> {
                 .setFields(
                   {
                     name: '👥 Katılımcılar',
-                    value: participantList,
+                    value: formatMentionList(participants),
+                    inline: false,
+                  },
+                  {
+                    name: '🟦 Q Atanlar',
+                    value: formatMentionList(qParticipants),
                     inline: false,
                   },
                   {
@@ -200,19 +204,21 @@ export async function execute(interaction: Interaction): Promise<void> {
           await client.db.addIngameSessionParticipant(sessionId, interaction.user.id, displayName);
           await client.db.resetIngameQMiss(interaction.user.id);
           const updatedParticipants = await client.db.getIngameSessionParticipants(sessionId);
+          const qParticipants = await client.db.getIngameSessionQParticipants(sessionId);
 
           const message = interaction.message;
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
-            const participantList = updatedParticipants
-              .map((p, i) => `${i + 1}. ` + (p.id ? `<@${p.id}>` : p.username))
-              .join('\n') || 'Katılımcı yok';
-
             const embed = EmbedBuilder.from(currentEmbed)
               .setFields(
                 {
                   name: '👥 Katılımcılar',
-                  value: participantList,
+                  value: formatMentionList(updatedParticipants),
+                  inline: false,
+                },
+                {
+                  name: '🟦 Q Atanlar',
+                  value: formatMentionList(qParticipants),
                   inline: false,
                 },
                 {
@@ -250,22 +256,23 @@ export async function execute(interaction: Interaction): Promise<void> {
             return;
           }
 
-          const displayName = interaction.member && 'displayName' in interaction.member ? (interaction.member as any).displayName : interaction.user.username;
           await client.db.removeIngameSessionParticipant(sessionId, interaction.user.id);
           const updatedParticipants = await client.db.getIngameSessionParticipants(sessionId);
+          const qParticipants = await client.db.getIngameSessionQParticipants(sessionId);
 
           const message = interaction.message;
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
-            const participantList = updatedParticipants
-              .map((p, i) => `${i + 1}. ` + (p.id ? `<@${p.id}>` : p.username))
-              .join('\n') || 'Katılımcı yok';
-
             const embed = EmbedBuilder.from(currentEmbed)
               .setFields(
                 {
                   name: '👥 Katılımcılar',
-                  value: participantList,
+                  value: formatMentionList(updatedParticipants),
+                  inline: false,
+                },
+                {
+                  name: '🟦 Q Atanlar',
+                  value: formatMentionList(qParticipants),
                   inline: false,
                 },
                 {
