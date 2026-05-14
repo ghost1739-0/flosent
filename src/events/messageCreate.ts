@@ -36,11 +36,13 @@ export async function execute(message: Message): Promise<void> {
 
   const participants = await client.db.getIngameSessionParticipants(session.id);
   const participantIds = new Set(participants.map((participant) => participant.id));
+  const wasParticipant = participantIds.has(message.author.id);
 
   const qAdded = await client.db.addIngameSessionQParticipant(session.id, message.author.id, message.author.username);
 
-  if (participantIds.has(message.author.id)) {
-    await client.db.removeIngameSessionParticipant(session.id, message.author.id);
+  await client.db.removeIngameSessionParticipant(session.id, message.author.id);
+
+  if (wasParticipant) {
     await client.db.resetIngameQMiss(message.author.id);
   } else {
     const miss = await client.db.incrementIngameQMiss(message.author.id, message.author.username);
@@ -90,7 +92,7 @@ export async function execute(message: Message): Promise<void> {
     }
   }
 
-  if (session.active === 1 && activeChannel && 'send' in activeChannel && qAdded) {
+  if (session.active === 1 && activeChannel && 'send' in activeChannel && (qAdded || wasParticipant)) {
     await activeChannel.send({
       content: `ingamee ${availableSlots} kişilik yer var gelmek isteyen gelsin.`,
       allowedMentions: { parse: [] },
