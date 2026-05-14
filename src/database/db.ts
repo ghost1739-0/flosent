@@ -484,6 +484,12 @@ export class DatabaseManager {
     await this.run('DELETE FROM ingame_q_misses WHERE discord_id = ?', [discordId]);
   }
 
+  async getIngameQWaitingCount(): Promise<number> {
+    await this.ready;
+    const row = await this.get<{ count: number }>('SELECT COUNT(*) as count FROM ingame_q_misses WHERE miss_count > 0');
+    return Number(row?.count || 0);
+  }
+
   // ============ BOT LOGS ============
   async addBotLog(action: string, userId: string, username: string, details?: string): Promise<void> {
     await this.ready;

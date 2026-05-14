@@ -11,7 +11,6 @@ import type { BotCommand, BotClient } from '../types';
 import { turkishDate } from '../utils/helpers';
 
 const INGAME_CHANNEL_ID = '1500135056637689939';
-const YETKILI_ROLE_ID = '1500135055207567590'; // High rank role
 
 const command: BotCommand = {
   data: new SlashCommandBuilder()
@@ -110,20 +109,6 @@ const command: BotCommand = {
         embeds: [embed],
         components: [row],
       });
-
-      // Send DM to participants
-      const roleToNotify = guild.roles.cache.get(YETKILI_ROLE_ID);
-      if (roleToNotify) {
-        const members = Array.from(roleToNotify.members.values());
-        for (const member of members) {
-          if (member.user.bot) continue;
-          try {
-            await member.send('rz çıkıyoruz sese toplan');
-          } catch (dmErr) {
-            // Silently ignore DM errors (closed DMs)
-          }
-        }
-      }
 
       // Create session in database
       const sessionId = await client.db.createIngameSession(message.id, channel.id, interaction.user.id);
