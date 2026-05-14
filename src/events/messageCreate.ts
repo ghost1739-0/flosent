@@ -13,6 +13,21 @@ function isTextBasedChannel(channel: unknown): channel is TextBasedChannel {
     && (channel as { isTextBased: () => boolean }).isTextBased();
 }
 
+function getIngameTotalCapacity(embed: { fields: Array<{ name: string; value: string }> } | undefined): number {
+  const totalField = embed?.fields.find((field) => field.name === '📊 Toplam');
+  if (!totalField) {
+    return 20;
+  }
+
+  const match = totalField.value.match(/(?:Katılımcı Sayısı:\s*)?(\d+)\s*\/\s*(\d+)/i);
+  if (!match) {
+    return 20;
+  }
+
+  const capacity = Number(match[2]);
+  return Number.isFinite(capacity) && capacity > 0 ? capacity : 20;
+}
+
 export const name = 'messageCreate';
 
 export async function execute(message: Message): Promise<void> {
@@ -65,7 +80,6 @@ export async function execute(message: Message): Promise<void> {
 
   const updatedParticipants = await client.db.getIngameSessionParticipants(session.id);
   const qParticipants = await client.db.getIngameSessionQParticipants(session.id);
-  const availableSlots = Math.max(20 - updatedParticipants.length, 0);
 
   const activeChannel = guild.channels.cache.get(session.channel_id)
     ?? await guild.channels.fetch(session.channel_id).catch(() => null);
@@ -75,6 +89,8 @@ export async function execute(message: Message): Promise<void> {
     if (messageTarget) {
       const currentEmbed = messageTarget.embeds[0];
       if (currentEmbed) {
+        const totalCapacity = getIngameTotalCapacity(currentEmbed);
+        const availableSlots = Math.max(totalCapacity - updatedParticipants.length, 0);
         const preservedFields = currentEmbed.fields.filter((field) => !['👥 Katılımcılar', '🟦 Q Atanlar', '📊 Toplam'].includes(field.name));
         const updatedEmbed = EmbedBuilder.from(currentEmbed).setFields(
           {
@@ -89,7 +105,7 @@ export async function execute(message: Message): Promise<void> {
           },
           {
             name: '📊 Toplam',
-            value: `Katılımcı Sayısı: ${updatedParticipants.length}/20`,
+            value: `Katılımcı Sayısı: ${updatedParticipants.length}/${totalCapacity}`,
             inline: false,
           },
           ...preservedFields
@@ -101,6 +117,8 @@ export async function execute(message: Message): Promise<void> {
   }
 
   if (session.active === 1 && isTextBasedChannel(activeChannel) && (qAdded || wasParticipant)) {
+    const totalCapacity = getIngameTotalCapacity(activeChannel.messages ? (await activeChannel.messages.fetch(session.message_id).catch(() => null))?.embeds[0] : undefined);
+    const availableSlots = Math.max(totalCapacity - updatedParticipants.length, 0);
     const announcementContent = `ingamee ${availableSlots} kişilik yer var gelmek isteyen gelsin.`;
     const announcementMessageId = session.last_q_announcement_message_id;
 
