@@ -1,9 +1,17 @@
-import { EmbedBuilder, Message } from 'discord.js';
+import { EmbedBuilder, Message, type TextBasedChannel } from 'discord.js';
 import type { BotClient, BotEvent } from '../types';
 import { formatMentionList } from '../utils/helpers';
 
 const Q_CHANNEL_ID = '1500135056847409175';
 const LOG_CHANNEL_ID = '1500440719058276482';
+
+function isTextBasedChannel(channel: unknown): channel is TextBasedChannel {
+  return !!channel
+    && typeof channel === 'object'
+    && 'isTextBased' in channel
+    && typeof (channel as { isTextBased?: unknown }).isTextBased === 'function'
+    && (channel as { isTextBased: () => boolean }).isTextBased();
+}
 
 export const name = 'messageCreate';
 
@@ -62,7 +70,7 @@ export async function execute(message: Message): Promise<void> {
   const activeChannel = guild.channels.cache.get(session.channel_id)
     ?? await guild.channels.fetch(session.channel_id).catch(() => null);
 
-  if (activeChannel && 'messages' in activeChannel) {
+  if (isTextBasedChannel(activeChannel)) {
     const messageTarget = await activeChannel.messages.fetch(session.message_id).catch(() => null);
     if (messageTarget) {
       const currentEmbed = messageTarget.embeds[0];
@@ -92,11 +100,11 @@ export async function execute(message: Message): Promise<void> {
     }
   }
 
-  if (session.active === 1 && activeChannel && ('send' in activeChannel || 'messages' in activeChannel) && (qAdded || wasParticipant)) {
+  if (session.active === 1 && isTextBasedChannel(activeChannel) && (qAdded || wasParticipant)) {
     const announcementContent = `ingamee ${availableSlots} kişilik yer var gelmek isteyen gelsin.`;
     const announcementMessageId = session.last_q_announcement_message_id;
 
-    if (announcementMessageId && 'messages' in activeChannel) {
+    if (announcementMessageId) {
       const previousAnnouncement = await activeChannel.messages.fetch(announcementMessageId).catch(() => null);
       if (previousAnnouncement) {
         await previousAnnouncement.edit({ content: announcementContent, allowedMentions: { parse: [] } });
@@ -107,7 +115,7 @@ export async function execute(message: Message): Promise<void> {
         });
         await client.db.setIngameSessionAnnouncementMessageId(session.id, newAnnouncement.id);
       }
-    } else if ('send' in activeChannel) {
+    } else {
       const newAnnouncement = await activeChannel.send({
         content: announcementContent,
         allowedMentions: { parse: [] },
