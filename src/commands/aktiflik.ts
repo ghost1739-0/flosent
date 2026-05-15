@@ -39,6 +39,28 @@ function formatMemberLines(members: GuildMember[], icon: string): string {
   return lines.join('\n');
 }
 
+function formatMemberMentionLines(members: GuildMember[], icon: string): string {
+  if (!members.length) {
+    return 'Yok';
+  }
+
+  const lines: string[] = [];
+  for (const member of members) {
+    const line = `${icon} <@${member.id}>`;
+    const candidate = [...lines, line].join('\n');
+    if (candidate.length > 1000) {
+      break;
+    }
+    lines.push(line);
+  }
+
+  if (members.length > lines.length) {
+    lines.push(`... ve ${members.length - lines.length} kişi daha`);
+  }
+
+  return lines.join('\n');
+}
+
 export async function sendAktiflikPanelMessage(
   client: BotClient,
   guild: Guild,
@@ -68,7 +90,7 @@ export async function sendAktiflikPanelMessage(
       },
       {
         name: `❌ Katılmayanlar (${missedMembers.length})`,
-        value: formatMemberLines(missedMembers, '❌'),
+        value: formatMemberMentionLines(missedMembers, '❌'),
         inline: false,
       }
     )
@@ -86,12 +108,10 @@ export async function sendAktiflikPanelMessage(
     console.log(`[Aktiflik Panel] Mention IDs: ${mentionIds.join(', ')}`);
 
     await panelChannel.send({
-      content: missedMembers.length
-        ? `Katılmayanlar: ${missedMembers.map((member) => `<@${member.id}>`).join(' ')}`
-        : 'Katılmayan yok.',
+      content: '',
       embeds: [panelEmbed],
       components: [row],
-      allowedMentions: { users: mentionIds },
+      allowedMentions: { parse: ['users'], users: mentionIds },
     });
 
     console.log(`[Aktiflik Panel] Panel mesajı gönderildi. Session ${sessionId}, Katılmayan: ${missedMembers.length}`);
