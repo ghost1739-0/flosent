@@ -82,7 +82,7 @@ export async function sendAktiflikPanelMessage(
     content: missedMembers.length ? missedMembers.map((member) => `<@${member.id}>`).join(' ') : 'Katılmayan yok.',
     embeds: [panelEmbed],
     components: [row],
-    allowedMentions: { users: missedMembers.map((member) => member.id) },
+    allowedMentions: { parse: ['users'], users: missedMembers.map((member) => member.id) },
   });
 }
 
