@@ -38,7 +38,7 @@ function formatMemberLines(members: GuildMember[], icon: string): string {
   return lines.join('\n');
 }
 
-async function sendAktiflikPanelMessage(
+export async function sendAktiflikPanelMessage(
   client: BotClient,
   guild: Guild,
   sessionId: number,
@@ -210,7 +210,7 @@ const command: BotCommand = {
 
       const embed = new EmbedBuilder()
         .setTitle('✅ Aktiflik Kontrolü')
-        .setDescription(`Aşağıdaki butona tıklayarak aktifliğinizi onaylayın!\n\n**Süre:** ${hours} Saat`)
+        .setDescription(`Aşağıdaki butona tıklayarak aktifliğinizi onaylayın!\n\n**Süre:** ${hours} Saniye (TEST)`)
         .setColor('Green')
         .addFields({ name: '📊 Katilim', value: `0/${roleMembersCount}`, inline: false })
         .setFooter({ text: `Aktiflik kontrolü — ${turkishDate()}` });
@@ -231,7 +231,7 @@ const command: BotCommand = {
         message.id,
         message.channelId,
         AKTIFLIK_ROLE_ID,
-        hours * 3600,
+        hours * 1,
         interaction.user.id
       );
 
@@ -243,7 +243,7 @@ const command: BotCommand = {
       await message.edit({ components: [activeRow] });
 
       // Start timeout for auto-close
-      console.log(`[Aktiflik] Zamanlayici kuruldu: ${hours} saat (${durationMs} ms)`);
+      console.log(`[Aktiflik] Zamanlayici kuruldu: ${hours} saniye (TEST) (${durationMs} ms)`);
       setTimeout(() => {
         console.log(`[Aktiflik] Otomatik kapatma tetiklendi. Session: ${sessionId}`);
         finalizeAktiflikSession(client, guild, sessionId, message.id, message.channelId)

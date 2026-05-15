@@ -8,6 +8,7 @@ import {
   GuildMember,
 } from 'discord.js';
 import type { BotClient, BotEvent } from '../types';
+import { sendAktiflikPanelMessage } from '../commands/aktiflik';
 
 const turkishDate = (date: Date = new Date()) => {
   return date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
@@ -113,6 +114,7 @@ async function finalizeAktiflikSessionByRow(
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
 
   await message.edit({ embeds: [closedEmbed], components: [row] });
+  await sendAktiflikPanelMessage(client, guild, session.id, missedMembers, joinedMembers, roleMembers.length);
 }
 
 async function recoverAndScheduleAktiflikSessions(client: BotClient): Promise<void> {
