@@ -56,16 +56,16 @@ async function finalizeAktiflikSessionByRow(
     return;
   }
 
+  await client.db.closeAktiflikSession(session.id);
+
   const channel = guild.channels.cache.get(session.channel_id)
     ?? await guild.channels.fetch(session.channel_id).catch(() => null);
   if (!channel || !('messages' in channel)) {
-    await client.db.closeAktiflikSession(session.id);
     return;
   }
 
   const message = await channel.messages.fetch(session.message_id).catch(() => null);
   if (!message) {
-    await client.db.closeAktiflikSession(session.id);
     return;
   }
 
@@ -113,7 +113,6 @@ async function finalizeAktiflikSessionByRow(
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
 
   await message.edit({ embeds: [closedEmbed], components: [row] });
-  await client.db.closeAktiflikSession(session.id);
 }
 
 async function recoverAndScheduleAktiflikSessions(client: BotClient): Promise<void> {

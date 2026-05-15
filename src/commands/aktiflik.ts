@@ -50,17 +50,17 @@ export const finalizeAktiflikSession = async (
     return;
   }
 
+  await client.db.closeAktiflikSession(sessionId);
+
   const channel = guild.channels.cache.get(channelId) ?? await guild.channels.fetch(channelId).catch(() => null);
   if (!channel || !('messages' in channel)) {
     console.log(`[Aktiflik] Kanal bulunamadi: ${channelId}`);
-    await client.db.closeAktiflikSession(sessionId);
     return;
   }
 
   const message = await channel.messages.fetch(messageId).catch(() => null);
   if (!message) {
     console.log(`[Aktiflik] Mesaj bulunamadi: ${messageId}`);
-    await client.db.closeAktiflikSession(sessionId);
     return;
   }
 
@@ -113,7 +113,6 @@ export const finalizeAktiflikSession = async (
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
 
   await message.edit({ embeds: [closedEmbed], components: [row] });
-  await client.db.closeAktiflikSession(sessionId);
 }
 
 const command: BotCommand = {
