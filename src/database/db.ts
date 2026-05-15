@@ -317,6 +317,21 @@ export class DatabaseManager {
     return this.all('SELECT id, message_id, channel_id, target_role_id, duration_seconds, created_by, created_at, ends_at, active FROM aktiflik_sessions WHERE active = 1 ORDER BY ends_at ASC');
   }
 
+  async getAktiflikSessionById(sessionId: number): Promise<{
+    id: number;
+    message_id: string;
+    channel_id: string;
+    target_role_id: string;
+    duration_seconds: number;
+    created_by: string;
+    created_at: string;
+    ends_at: string;
+    active: number;
+  } | undefined> {
+    await this.ready;
+    return this.get('SELECT id, message_id, channel_id, target_role_id, duration_seconds, created_by, created_at, ends_at, active FROM aktiflik_sessions WHERE id = ? LIMIT 1', [sessionId]) as Promise<any>;
+  }
+
   async addAktiflikSessionParticipant(sessionId: number, discordId: string, username: string): Promise<boolean> {
     await this.ready;
     const result = await this.run(

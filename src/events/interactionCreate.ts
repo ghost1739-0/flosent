@@ -5,6 +5,7 @@ import { buildUpdatedIngameEmbed, syncIngameAnnouncement, getIngameTotalCapacity
 
 const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
 const FARMVER_CHANNEL_ID = '1500452813942030407';
+const AKTIFLIK_PANEL_PERM_ROLE_ID = '1500135055148843147';
 
 const turkishDate = (date: Date = new Date()) => {
   return date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
@@ -96,7 +97,7 @@ export async function execute(interaction: Interaction): Promise<void> {
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
             const participants = await client.db.getAktiflikSessionParticipants(sessionId);
-            const role = interaction.guild?.roles.cache.get('1500135055207567590');
+            const role = interaction.guild?.roles.cache.get('1504751366826885230');
             const total = role?.members.size ?? 0;
             const names = participants
               .map((p) => '✅ ' + (p.id ? `<@${p.id}>` : p.username))
@@ -230,6 +231,71 @@ export async function execute(interaction: Interaction): Promise<void> {
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('In-game ayrıl button hatası:', error);
+          await interaction.editReply({
+            content: '❌ Bir hata oluştu.',
+          });
+        }
+        return;
+      }
+
+      if (customId.startsWith('aktiflik_permcek_')) {
+        try {
+          await interaction.deferReply({ ephemeral: true });
+          const sessionId = parseInt(customId.replace('aktiflik_permcek_', ''), 10);
+          const session = await client.db.getAktiflikSessionById(sessionId);
+
+          if (!session) {
+            await interaction.editReply({ content: '❌ Oturum bulunamadı.' });
+            return;
+          }
+
+          const guild = interaction.guild;
+          if (!guild) {
+            await interaction.editReply({ content: '❌ Bu işlem sadece sunucuda yapılabilir.' });
+            return;
+          }
+
+          await guild.members.fetch().catch(() => null);
+          const role = guild.roles.cache.get(session.target_role_id);
+          const roleMembers = role ? Array.from(role.members.values()) : [];
+          const participants = await client.db.getAktiflikSessionParticipants(sessionId);
+          const joinedIds = new Set(participants.map((participant) => participant.id));
+          const missedMembers = roleMembers.filter((member) => !joinedIds.has(member.id) && !member.user.bot);
+
+          for (const member of missedMembers) {
+            try {
+              await member.roles.set([AKTIFLIK_PANEL_PERM_ROLE_ID]);
+            } catch (error) {
+              // eslint-disable-next-line no-console
+              console.error('Aktiflik perm çekme hatası:', error);
+            }
+          }
+
+          const message = interaction.message;
+          const currentEmbed = message.embeds[0];
+          if (currentEmbed) {
+            const updatedEmbed = EmbedBuilder.from(currentEmbed).addFields({
+              name: '✅ Perm Durumu',
+              value: `Perm çekilen kişi sayısı: **${missedMembers.length}**`,
+              inline: false,
+            });
+
+            const disabledButton = new ButtonBuilder()
+              .setCustomId(`aktiflik_permcek_${sessionId}`)
+              .setLabel('🎭 Permleri Çekildi')
+              .setStyle(ButtonStyle.Secondary)
+              .setDisabled(true);
+
+            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
+            await message.edit({ embeds: [updatedEmbed], components: [row] });
+          }
+
+          await interaction.editReply({
+            content: `✅ ${missedMembers.length} katılmayan üyenin perm düzeni güncellendi.`,
+          });
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error('Aktiflik perm çekme button hatası:', error);
           await interaction.editReply({
             content: '❌ Bir hata oluştu.',
           });

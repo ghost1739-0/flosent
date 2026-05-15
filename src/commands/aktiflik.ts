@@ -12,7 +12,9 @@ import type { BotCommand, BotClient } from '../types';
 import { turkishDate } from '../utils/helpers';
 
 const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
-const AKTIFLIK_ROLE_ID = '1500135055207567590';
+const AKTIFLIK_ROLE_ID = '1504751366826885230';
+const AKTIFLIK_PANEL_CHANNEL_ID = '1500135056440819836';
+const AKTIFLIK_PANEL_PERM_ROLE_ID = '1500135055148843147';
 
 function formatMemberLines(members: GuildMember[], icon: string): string {
   if (!members.length) {
@@ -34,6 +36,54 @@ function formatMemberLines(members: GuildMember[], icon: string): string {
   }
 
   return lines.join('\n');
+}
+
+async function sendAktiflikPanelMessage(
+  client: BotClient,
+  guild: Guild,
+  sessionId: number,
+  missedMembers: GuildMember[],
+  joinedMembers: GuildMember[],
+  roleMembersCount: number
+): Promise<void> {
+  const panelChannel = guild.channels.cache.get(AKTIFLIK_PANEL_CHANNEL_ID)
+    ?? await guild.channels.fetch(AKTIFLIK_PANEL_CHANNEL_ID).catch(() => null);
+
+  if (!panelChannel || !('send' in panelChannel)) {
+    return;
+  }
+
+  const panelEmbed = new EmbedBuilder()
+    .setTitle('✅ Aktiflik Kapatildi - Perm Paneli')
+    .setDescription('Katılmayanlardan perm çekmek için aşağıdaki butona bas.')
+    .setColor('Orange')
+    .addFields(
+      {
+        name: '📊 Katılım Özeti',
+        value: `Toplam: **${roleMembersCount}**\nKatılan: **${joinedMembers.length}**\nKatılmayan: **${missedMembers.length}**`,
+        inline: false,
+      },
+      {
+        name: `❌ Katılmayanlar (${missedMembers.length})`,
+        value: formatMemberLines(missedMembers, '❌'),
+        inline: false,
+      }
+    )
+    .setFooter({ text: `Oturum: ${sessionId}` });
+
+  const permButton = new ButtonBuilder()
+    .setCustomId(`aktiflik_permcek_${sessionId}`)
+    .setLabel('🎭 Permleri Çek')
+    .setStyle(ButtonStyle.Danger);
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(permButton);
+
+  await panelChannel.send({
+    content: missedMembers.length ? missedMembers.map((member) => `<@${member.id}>`).join(' ') : 'Katılmayan yok.',
+    embeds: [panelEmbed],
+    components: [row],
+    allowedMentions: { users: missedMembers.map((member) => member.id) },
+  });
 }
 
 export const finalizeAktiflikSession = async (
@@ -113,6 +163,7 @@ export const finalizeAktiflikSession = async (
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
 
   await message.edit({ embeds: [closedEmbed], components: [row] });
+  await sendAktiflikPanelMessage(client, guild, sessionId, missedMembers, joinedMembers, roleMembers.length);
 }
 
 const command: BotCommand = {
