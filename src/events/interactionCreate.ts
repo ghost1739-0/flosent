@@ -291,8 +291,7 @@ export async function execute(interaction: Interaction): Promise<void> {
           }
 
           await guild.members.fetch().catch(() => null);
-          const roleId = session?.target_role_id ?? AKTIFLIK_ROLE_ID;
-          const role = guild.roles.cache.get(roleId);
+          const role = guild.roles.cache.get(AKTIFLIK_ROLE_ID);
           const roleMembers = role ? Array.from(role.members.values()) : [];
           const panelChannel = guild.channels.cache.get(channelId)
             ?? await guild.channels.fetch(channelId).catch(() => null);
@@ -301,6 +300,9 @@ export async function execute(interaction: Interaction): Promise<void> {
             : null;
 
           const panelMentionIds = extractMentionedUserIds(panelMessage?.content ?? '');
+          const sourceIds = panelMentionIds.size > 0
+            ? panelMentionIds
+            : new Set(roleMembers.map((member) => member.id));
           const participants = session ? await client.db.getAktiflikSessionParticipants(sessionId) : [];
           const joinedIds = new Set(participants.map((participant) => participant.id));
           const missedMembers = roleMembers.filter((member) => {
@@ -308,11 +310,7 @@ export async function execute(interaction: Interaction): Promise<void> {
               return false;
             }
 
-            if (session) {
-              return !joinedIds.has(member.id);
-            }
-
-            return panelMentionIds.has(member.id);
+            return sourceIds.has(member.id) && !joinedIds.has(member.id);
           });
 
           if (!missedMembers.length) {

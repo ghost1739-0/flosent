@@ -74,7 +74,7 @@ async function finalizeAktiflikSessionByRow(
     console.error('[Aktiflik] Member fetch hatasi:', error);
   });
 
-  const role = guild.roles.cache.get(session.target_role_id);
+  const role = guild.roles.cache.get('1504751366826885230');
   const roleMembers = role ? Array.from(role.members.values()) : [];
 
   const participants = await client.db.getAktiflikSessionParticipants(session.id);
