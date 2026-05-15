@@ -191,7 +191,7 @@ export async function sendAktiflikPanelMessage(
     await panelChannel.send({
       content: missedListContent,
       embeds: [panelEmbed],
-      allowedMentions: { parse: ['users'], users: mentionIds },
+      allowedMentions: { users: mentionIds },
       components: [row],
     });
 
@@ -221,7 +221,7 @@ export async function sendAktiflikPanelMessage(
           content: missedListContent,
           embeds: [panelEmbedFallback],
           components: [row],
-          allowedMentions: { parse: ['users'], users: mentionIds },
+          allowedMentions: { users: mentionIds },
         });
         console.log(`[Aktiflik Panel] Panel mesajı fallback kanala gönderildi. Session ${sessionId}, Kanal: ${AKTIFLIK_CHANNEL_ID}`);
       } else {
