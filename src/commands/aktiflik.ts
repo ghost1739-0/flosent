@@ -187,9 +187,7 @@ export const finalizeAktiflikSession = async (
       },
       {
         name: `❌ Katılmayanlar (${missedMembers.length})`,
-        value: missedMembers.length
-          ? missedMembers.map((member) => `❌ <@${member.id}>`).join('\n')
-          : 'Yok',
+        value: missedMembers.length ? formatMemberMentionLines(missedMembers, '❌') : 'Yok',
         inline: false,
       }
     )
@@ -203,12 +201,21 @@ export const finalizeAktiflikSession = async (
     .setDisabled(true);
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
 
-  await message.edit({
-    content: null,
-    embeds: [closedEmbed],
-    components: [row],
-  });
-  await sendAktiflikPanelMessage(client, guild, sessionId, missedMembers, joinedMembers, roleMembers.length);
+  try {
+    await message.edit({
+      content: null,
+      embeds: [closedEmbed],
+      components: [row],
+    });
+  } catch (error) {
+    console.error('[Aktiflik] Kapanış mesajı güncellenemedi:', error);
+  }
+
+  try {
+    await sendAktiflikPanelMessage(client, guild, sessionId, missedMembers, joinedMembers, roleMembers.length);
+  } catch (error) {
+    console.error('[Aktiflik] Panel mesajı gönderilemedi:', error);
+  }
 
   await client.db.addBotLog(
     'aktiflik_otomatik_kapandi',
