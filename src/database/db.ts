@@ -1,35 +1,22 @@
-import { dirname, resolve } from 'path';
-import { existsSync, mkdirSync } from 'fs';
-
-type SqliteRunResult = { changes: number; lastID: number };
-
-const sqlite3 = require('sqlite3').verbose();
+import { connectMongo, disconnectMongo } from './mongo';
+import {
+  getNextSequence,
+  AktiflikLogModel,
+  AktiflikMemberStatusModel,
+  AktiflikSessionModel,
+  AktiflikSessionParticipantModel,
+  BanModel,
+  BotLogModel,
+  FarmLogModel,
+  IngameQMissModel,
+  IngameSessionModel,
+  IngameSessionQParticipantModel,
+} from './models';
 
 export class DatabaseManager {
-  private db: any;
-
   private ready: Promise<void>;
 
   constructor() {
-    const dbPath = resolve(process.cwd(), 'data', 'database.sqlite');
-    const dbDir = dirname(dbPath);
-
-    try {
-      if (!existsSync(dbDir)) {
-        mkdirSync(dbDir, { recursive: true });
-      }
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Database directory create error:', error);
-    }
-
-    this.db = new sqlite3.Database(dbPath, (error: Error | null) => {
-      if (error) {
-        // eslint-disable-next-line no-console
-        console.error('Database open error:', error);
-      }
-    });
-
     this.ready = this.initialize().catch((error) => {
       // eslint-disable-next-line no-console
       console.error('Database initialization error:', error);
@@ -38,238 +25,55 @@ export class DatabaseManager {
   }
 
   private async initialize(): Promise<void> {
-    await this.exec('PRAGMA journal_mode = WAL');
-    await this.ensureCoreTables();
-    await this.ensureAktiflikSchema();
-    await this.ensureAktiflikRuntimeTables();
-    await this.ensureIngameSchema();
+    await connectMongo();
+
+    await Promise.all([
+      AktiflikLogModel.init(),
+      BanModel.init(),
+      FarmLogModel.init(),
+      IngameSessionModel.init(),
+      BotLogModel.init(),
+      IngameQMissModel.init(),
+      IngameSessionQParticipantModel.init(),
+      AktiflikSessionModel.init(),
+      AktiflikSessionParticipantModel.init(),
+      AktiflikMemberStatusModel.init(),
+    ]);
   }
 
-  private run(sql: string, params: unknown[] = []): Promise<SqliteRunResult> {
-    return new Promise((resolve, reject) => {
-      this.db.run(sql, params, function sqliteRunCallback(this: SqliteRunResult, err: Error | null) {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        resolve({
-          changes: Number((this as any).changes ?? 0),
-          lastID: Number((this as any).lastID ?? 0),
-        });
-      });
-    });
+  private async nextId(collectionName: string): Promise<number> {
+    await this.ready;
+    return getNextSequence(collectionName);
   }
 
-  private get<T>(sql: string, params: unknown[] = []): Promise<T | undefined> {
-    return new Promise((resolve, reject) => {
-      this.db.get(sql, params, (err: Error | null, row: T | undefined) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        resolve(row);
-      });
-    });
-  }
-
-  private all<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all(sql, params, (err: Error | null, rows: T[]) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        resolve(rows);
-      });
-    });
-  }
-
-  private exec(sql: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.exec(sql, (err: Error | null) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        resolve();
-      });
-    });
-  }
-
-  private async ensureCoreTables(): Promise<void> {
-    await this.exec(`
-      CREATE TABLE IF NOT EXISTS aktiflik_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        discord_id TEXT NOT NULL,
-        username TEXT NOT NULL,
-        checked_at TEXT NOT NULL,
-        checked_date TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS bans (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        discord_id TEXT NOT NULL,
-        username TEXT NOT NULL,
-        reason TEXT NOT NULL,
-        banned_by TEXT NOT NULL,
-        banned_at TEXT NOT NULL,
-        active INTEGER DEFAULT 1
-      );
-
-      CREATE TABLE IF NOT EXISTS farm_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        discord_id TEXT NOT NULL,
-        username TEXT NOT NULL,
-        amount INTEGER NOT NULL,
-        given_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS ingame_sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        message_id TEXT NOT NULL,
-        channel_id TEXT NOT NULL,
-        participants TEXT NOT NULL,
-        created_by TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        active INTEGER DEFAULT 1
-      );
-
-      CREATE TABLE IF NOT EXISTS bot_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        action TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        username TEXT NOT NULL,
-        details TEXT,
-        logged_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS ingame_q_misses (
-        discord_id TEXT PRIMARY KEY,
-        username TEXT NOT NULL,
-        miss_count INTEGER DEFAULT 0,
-        updated_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS ingame_session_q_participants (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id INTEGER NOT NULL,
-        discord_id TEXT NOT NULL,
-        username TEXT NOT NULL,
-        joined_at TEXT NOT NULL,
-        UNIQUE(session_id, discord_id)
-      );
-    `);
-  }
-
-  private async ensureAktiflikSchema(): Promise<void> {
-    try {
-      const info = await this.all<{ name: string }>("PRAGMA table_info('aktiflik_logs')");
-      const hasCheckedDate = info.some((column) => column.name === 'checked_date');
-      if (!hasCheckedDate) {
-        await this.exec('ALTER TABLE aktiflik_logs ADD COLUMN checked_date TEXT');
-        await this.exec('UPDATE aktiflik_logs SET checked_date = DATE(checked_at)');
-      }
-
-      await this.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_aktiflik_unique ON aktiflik_logs(discord_id, checked_date)');
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('ensureAktiflikSchema error:', err);
-    }
-  }
-
-  private async ensureAktiflikRuntimeTables(): Promise<void> {
-    await this.exec(`
-      CREATE TABLE IF NOT EXISTS aktiflik_sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        message_id TEXT NOT NULL,
-        channel_id TEXT NOT NULL,
-        target_role_id TEXT NOT NULL,
-        duration_seconds INTEGER NOT NULL,
-        created_by TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        ends_at TEXT NOT NULL,
-        active INTEGER DEFAULT 1
-      );
-
-      CREATE TABLE IF NOT EXISTS aktiflik_session_participants (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id INTEGER NOT NULL,
-        discord_id TEXT NOT NULL,
-        username TEXT NOT NULL,
-        joined_at TEXT NOT NULL,
-        UNIQUE(session_id, discord_id)
-      );
-
-      CREATE TABLE IF NOT EXISTS aktiflik_member_status (
-        discord_id TEXT PRIMARY KEY,
-        username TEXT NOT NULL,
-        consecutive_misses INTEGER DEFAULT 0,
-        total_misses INTEGER DEFAULT 0,
-        last_seen_at TEXT,
-        updated_at TEXT NOT NULL
-      );
-    `);
-
-    await this.exec('CREATE INDEX IF NOT EXISTS idx_aktiflik_sessions_active ON aktiflik_sessions(active)');
-    await this.exec('CREATE INDEX IF NOT EXISTS idx_aktiflik_participants_session ON aktiflik_session_participants(session_id)');
-  }
-
-  private async ensureIngameSchema(): Promise<void> {
-    try {
-      const info = await this.all<{ name: string }>("PRAGMA table_info('ingame_sessions')");
-      const hasAnnouncementColumn = info.some((column) => column.name === 'last_q_announcement_message_id');
-      if (!hasAnnouncementColumn) {
-        await this.exec('ALTER TABLE ingame_sessions ADD COLUMN last_q_announcement_message_id TEXT');
-      }
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('ensureIngameSchema error:', err);
-    }
-  }
-
-  // ============ AKTIFLIK LOGS ============
   async addAktiflikLog(discordId: string, username: string): Promise<boolean> {
     await this.ready;
-    const now = new Date().toISOString();
-    const date = now.split('T')[0];
+    const now = new Date();
+    const checkedDate = now.toISOString().split('T')[0];
 
-    try {
-      const result = await this.run(
-        'INSERT OR IGNORE INTO aktiflik_logs (discord_id, username, checked_at, checked_date) VALUES (?, ?, ?, ?)',
-        [discordId, username, now, date]
-      );
-      return result.changes > 0;
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('addAktiflikLog error:', err);
-      return false;
-    }
+    const result = await AktiflikLogModel.updateOne(
+      { discordId, checkedDate },
+      {
+        $setOnInsert: {
+          id: await this.nextId('aktiflik_logs'),
+          discordId,
+          username,
+          checkedAt: now,
+          checkedDate,
+        },
+      },
+      { upsert: true }
+    );
+
+    return Number(result.upsertedCount ?? 0) > 0;
   }
 
   async hasCheckedAktiflikToday(discordId: string): Promise<boolean> {
     await this.ready;
     const today = new Date().toISOString().split('T')[0];
-
-    try {
-      const info = await this.all<{ name: string }>("PRAGMA table_info('aktiflik_logs')");
-      const hasCheckedDate = info.some((column) => column.name === 'checked_date');
-      if (hasCheckedDate) {
-        const row = await this.get('SELECT 1 FROM aktiflik_logs WHERE discord_id = ? AND checked_date = ? LIMIT 1', [discordId, today]);
-        return !!row;
-      }
-    } catch {
-      // ignore and fallback
-    }
-
-    const row = await this.get('SELECT 1 FROM aktiflik_logs WHERE discord_id = ? AND DATE(checked_at) = ? LIMIT 1', [discordId, today]);
-    return !!row;
+    return !!(await AktiflikLogModel.exists({ discordId, checkedDate: today }));
   }
 
-  // ============ AKTIFLIK SESSIONS ============
   async createAktiflikSession(
     messageId: string,
     channelId: string,
@@ -280,11 +84,21 @@ export class DatabaseManager {
     await this.ready;
     const now = new Date();
     const endsAt = new Date(now.getTime() + durationSeconds * 1000);
-    const result = await this.run(
-      'INSERT INTO aktiflik_sessions (message_id, channel_id, target_role_id, duration_seconds, created_by, created_at, ends_at, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
-      [messageId, channelId, targetRoleId, durationSeconds, createdBy, now.toISOString(), endsAt.toISOString()]
-    );
-    return result.lastID;
+    const id = await this.nextId('aktiflik_sessions');
+
+    await AktiflikSessionModel.create({
+      id,
+      messageId,
+      channelId,
+      targetRoleId,
+      durationSeconds,
+      createdBy,
+      createdAt: now,
+      endsAt,
+      active: true,
+    });
+
+    return id;
   }
 
   async getAktiflikSessionByMessageId(messageId: string): Promise<{
@@ -294,12 +108,27 @@ export class DatabaseManager {
     target_role_id: string;
     duration_seconds: number;
     created_by: string;
-    created_at: string;
-    ends_at: string;
+    created_at: Date;
+    ends_at: Date;
     active: number;
   } | undefined> {
     await this.ready;
-    return this.get('SELECT id, message_id, channel_id, target_role_id, duration_seconds, created_by, created_at, ends_at, active FROM aktiflik_sessions WHERE message_id = ? LIMIT 1', [messageId]) as Promise<any>;
+    const session = await AktiflikSessionModel.findOne({ messageId }).lean();
+    if (!session) {
+      return undefined;
+    }
+
+    return {
+      id: session.id,
+      message_id: session.messageId,
+      channel_id: session.channelId,
+      target_role_id: session.targetRoleId,
+      duration_seconds: session.durationSeconds,
+      created_by: session.createdBy,
+      created_at: session.createdAt,
+      ends_at: session.endsAt,
+      active: session.active ? 1 : 0,
+    };
   }
 
   async getActiveAktiflikSessions(): Promise<Array<{
@@ -309,12 +138,23 @@ export class DatabaseManager {
     target_role_id: string;
     duration_seconds: number;
     created_by: string;
-    created_at: string;
-    ends_at: string;
+    created_at: Date;
+    ends_at: Date;
     active: number;
   }>> {
     await this.ready;
-    return this.all('SELECT id, message_id, channel_id, target_role_id, duration_seconds, created_by, created_at, ends_at, active FROM aktiflik_sessions WHERE active = 1 ORDER BY ends_at ASC');
+    const sessions = await AktiflikSessionModel.find({ active: true }).sort({ endsAt: 1 }).lean();
+    return sessions.map((session) => ({
+      id: session.id,
+      message_id: session.messageId,
+      channel_id: session.channelId,
+      target_role_id: session.targetRoleId,
+      duration_seconds: session.durationSeconds,
+      created_by: session.createdBy,
+      created_at: session.createdAt,
+      ends_at: session.endsAt,
+      active: session.active ? 1 : 0,
+    }));
   }
 
   async getAktiflikSessionById(sessionId: number): Promise<{
@@ -324,92 +164,126 @@ export class DatabaseManager {
     target_role_id: string;
     duration_seconds: number;
     created_by: string;
-    created_at: string;
-    ends_at: string;
+    created_at: Date;
+    ends_at: Date;
     active: number;
   } | undefined> {
     await this.ready;
-    return this.get('SELECT id, message_id, channel_id, target_role_id, duration_seconds, created_by, created_at, ends_at, active FROM aktiflik_sessions WHERE id = ? LIMIT 1', [sessionId]) as Promise<any>;
+    const session = await AktiflikSessionModel.findOne({ id: sessionId }).lean();
+    if (!session) {
+      return undefined;
+    }
+
+    return {
+      id: session.id,
+      message_id: session.messageId,
+      channel_id: session.channelId,
+      target_role_id: session.targetRoleId,
+      duration_seconds: session.durationSeconds,
+      created_by: session.createdBy,
+      created_at: session.createdAt,
+      ends_at: session.endsAt,
+      active: session.active ? 1 : 0,
+    };
   }
 
   async addAktiflikSessionParticipant(sessionId: number, discordId: string, username: string): Promise<boolean> {
     await this.ready;
-    const result = await this.run(
-      'INSERT OR IGNORE INTO aktiflik_session_participants (session_id, discord_id, username, joined_at) VALUES (?, ?, ?, ?)',
-      [sessionId, discordId, username, new Date().toISOString()]
+    const id = await this.nextId('aktiflik_session_participants');
+    const result = await AktiflikSessionParticipantModel.updateOne(
+      { sessionId, discordId },
+      {
+        $setOnInsert: {
+          id,
+          sessionId,
+          discordId,
+          username,
+          joinedAt: new Date(),
+        },
+      },
+      { upsert: true }
     );
-    return result.changes > 0;
+
+    return Number(result.upsertedCount ?? 0) > 0;
   }
 
   async hasJoinedAktiflikSession(sessionId: number, discordId: string): Promise<boolean> {
     await this.ready;
-    const row = await this.get('SELECT 1 FROM aktiflik_session_participants WHERE session_id = ? AND discord_id = ? LIMIT 1', [sessionId, discordId]);
-    return !!row;
+    return !!(await AktiflikSessionParticipantModel.exists({ sessionId, discordId }));
   }
 
-  async getAktiflikSessionParticipants(sessionId: number): Promise<Array<{ id: string; username: string; joined_at: string }>> {
+  async getAktiflikSessionParticipants(sessionId: number): Promise<Array<{ id: string; username: string; joined_at: Date }>> {
     await this.ready;
-    return this.all('SELECT discord_id as id, username, joined_at FROM aktiflik_session_participants WHERE session_id = ? ORDER BY joined_at ASC', [sessionId]);
+    const participants = await AktiflikSessionParticipantModel.find({ sessionId }).sort({ joinedAt: 1 }).lean();
+    return participants.map((participant) => ({
+      id: participant.discordId,
+      username: participant.username,
+      joined_at: participant.joinedAt,
+    }));
   }
 
   async closeAktiflikSession(sessionId: number): Promise<void> {
     await this.ready;
-    await this.run('UPDATE aktiflik_sessions SET active = 0 WHERE id = ?', [sessionId]);
+    await AktiflikSessionModel.updateOne({ id: sessionId }, { $set: { active: false } });
   }
 
   async markAktiflikJoined(discordId: string, username: string): Promise<void> {
     await this.ready;
-    const now = new Date().toISOString();
-    await this.run(
-      `
-      INSERT INTO aktiflik_member_status (discord_id, username, consecutive_misses, total_misses, last_seen_at, updated_at)
-      VALUES (?, ?, 0, 0, ?, ?)
-      ON CONFLICT(discord_id) DO UPDATE SET
-        username = excluded.username,
-        consecutive_misses = 0,
-        last_seen_at = excluded.last_seen_at,
-        updated_at = excluded.updated_at
-    `,
-      [discordId, username, now, now]
+    const now = new Date();
+    await AktiflikMemberStatusModel.updateOne(
+      { discordId },
+      {
+        $set: {
+          username,
+          consecutiveMisses: 0,
+          lastSeenAt: now,
+          updatedAt: now,
+        },
+        $setOnInsert: { discordId },
+      },
+      { upsert: true }
     );
   }
 
   async incrementAktiflikMiss(discordId: string, username: string): Promise<{ consecutive_misses: number; total_misses: number }> {
     await this.ready;
-    const existing = await this.get<{ consecutive_misses: number; total_misses: number }>(
-      'SELECT consecutive_misses, total_misses FROM aktiflik_member_status WHERE discord_id = ? LIMIT 1',
-      [discordId]
-    );
+    const result = await AktiflikMemberStatusModel.findOneAndUpdate(
+      { discordId },
+      {
+        $set: {
+          username,
+          updatedAt: new Date(),
+          lastSeenAt: null,
+        },
+        $setOnInsert: { discordId },
+        $inc: { consecutiveMisses: 1, totalMisses: 1 },
+      },
+      { upsert: true, new: true }
+    ).lean();
 
-    const now = new Date().toISOString();
-    if (!existing) {
-      await this.run(
-        'INSERT INTO aktiflik_member_status (discord_id, username, consecutive_misses, total_misses, last_seen_at, updated_at) VALUES (?, ?, 1, 1, NULL, ?)',
-        [discordId, username, now]
-      );
-      return { consecutive_misses: 1, total_misses: 1 };
-    }
-
-    const consecutive = Number(existing.consecutive_misses || 0) + 1;
-    const total = Number(existing.total_misses || 0) + 1;
-    await this.run(
-      'UPDATE aktiflik_member_status SET username = ?, consecutive_misses = ?, total_misses = ?, updated_at = ? WHERE discord_id = ?',
-      [username, consecutive, total, now, discordId]
-    );
-
-    return { consecutive_misses: consecutive, total_misses: total };
+    return {
+      consecutive_misses: Number(result?.consecutiveMisses ?? 0),
+      total_misses: Number(result?.totalMisses ?? 0),
+    };
   }
 
-  // ============ BANS ============
   async addBan(discordId: string, username: string, reason: string, bannedBy: string): Promise<void> {
     await this.ready;
-    await this.run('INSERT INTO bans (discord_id, username, reason, banned_by, banned_at, active) VALUES (?, ?, ?, ?, ?, 1)', [discordId, username, reason, bannedBy, new Date().toISOString()]);
+    const id = await this.nextId('bans');
+    await BanModel.create({
+      id,
+      discordId,
+      username,
+      reason,
+      bannedBy,
+      bannedAt: new Date(),
+      active: true,
+    });
   }
 
   async isBanned(discordId: string): Promise<boolean> {
     await this.ready;
-    const row = await this.get('SELECT 1 FROM bans WHERE discord_id = ? AND active = 1 LIMIT 1', [discordId]);
-    return !!row;
+    return !!(await BanModel.exists({ discordId, active: true }));
   }
 
   async getActiveBans(): Promise<Array<{
@@ -418,169 +292,251 @@ export class DatabaseManager {
     username: string;
     reason: string;
     banned_by: string;
-    banned_at: string;
+    banned_at: Date;
   }>> {
     await this.ready;
-    return this.all('SELECT id, discord_id, username, reason, banned_by, banned_at FROM bans WHERE active = 1 ORDER BY banned_at DESC');
+    const bans = await BanModel.find({ active: true }).sort({ bannedAt: -1 }).lean();
+    return bans.map((ban) => ({
+      id: ban.id,
+      discord_id: ban.discordId,
+      username: ban.username,
+      reason: ban.reason,
+      banned_by: ban.bannedBy,
+      banned_at: ban.bannedAt,
+    }));
   }
 
   async unbanUser(banId: number): Promise<void> {
     await this.ready;
-    await this.run('UPDATE bans SET active = 0 WHERE id = ?', [banId]);
+    await BanModel.updateOne({ id: banId }, { $set: { active: false } });
   }
 
-  async getBanById(banId: number): Promise<{ id: number; discord_id: string; username: string; reason: string; banned_by: string; banned_at: string } | undefined> {
+  async getBanById(banId: number): Promise<{ id: number; discord_id: string; username: string; reason: string; banned_by: string; banned_at: Date } | undefined> {
     await this.ready;
-    return this.get('SELECT * FROM bans WHERE id = ? AND active = 1', [banId]) as Promise<any>;
+    const ban = await BanModel.findOne({ id: banId, active: true }).lean();
+    if (!ban) {
+      return undefined;
+    }
+
+    return {
+      id: ban.id,
+      discord_id: ban.discordId,
+      username: ban.username,
+      reason: ban.reason,
+      banned_by: ban.bannedBy,
+      banned_at: ban.bannedAt,
+    };
   }
 
-  // ============ FARM LOGS ============
   async addFarmLog(discordId: string, username: string, amount: number): Promise<void> {
     await this.ready;
-    await this.run('INSERT INTO farm_logs (discord_id, username, amount, given_at) VALUES (?, ?, ?, ?)', [discordId, username, amount, new Date().toISOString()]);
+    const id = await this.nextId('farm_logs');
+    await FarmLogModel.create({
+      id,
+      discordId,
+      username,
+      amount,
+      givenAt: new Date(),
+    });
   }
 
   async getFarmLeaderboard(): Promise<Array<{ discord_id: string; username: string; total_amount: number }>> {
     await this.ready;
-    return this.all('SELECT discord_id, username, SUM(amount) as total_amount FROM farm_logs GROUP BY discord_id ORDER BY total_amount DESC');
+    const rows = await FarmLogModel.aggregate([
+      {
+        $group: {
+          _id: { discordId: '$discordId', username: '$username' },
+          total_amount: { $sum: '$amount' },
+        },
+      },
+      {
+        $sort: { total_amount: -1 },
+      },
+    ]);
+
+    return rows.map((row) => ({
+      discord_id: row._id.discordId,
+      username: row._id.username,
+      total_amount: Number(row.total_amount ?? 0),
+    }));
   }
 
-  // ============ INGAME SESSIONS ============
   async createIngameSession(messageId: string, channelId: string, createdBy: string): Promise<number> {
     await this.ready;
-    const result = await this.run('INSERT INTO ingame_sessions (message_id, channel_id, participants, last_q_announcement_message_id, created_by, created_at, active) VALUES (?, ?, ?, ?, ?, ?, 1)', [messageId, channelId, JSON.stringify([]), null, createdBy, new Date().toISOString()]);
-    return result.lastID;
+    const id = await this.nextId('ingame_sessions');
+    await IngameSessionModel.create({
+      id,
+      messageId,
+      channelId,
+      participants: [],
+      lastQAnnouncementMessageId: null,
+      createdBy,
+      createdAt: new Date(),
+      active: true,
+    });
+    return id;
   }
 
-  async getActiveIngameSession(): Promise<{ id: number; message_id: string; channel_id: string; participants: string; last_q_announcement_message_id: string | null; created_by: string; created_at: string } | undefined> {
+  async getActiveIngameSession(): Promise<{ id: number; message_id: string; channel_id: string; participants: string; last_q_announcement_message_id: string | null; created_by: string; created_at: Date } | undefined> {
     await this.ready;
-    return this.get('SELECT id, message_id, channel_id, participants, last_q_announcement_message_id, created_by, created_at FROM ingame_sessions WHERE active = 1 ORDER BY created_at DESC LIMIT 1') as Promise<any>;
+    const session = await IngameSessionModel.findOne({ active: true }).sort({ createdAt: -1 }).lean();
+    if (!session) {
+      return undefined;
+    }
+
+    return {
+      id: session.id,
+      message_id: session.messageId,
+      channel_id: session.channelId,
+      participants: JSON.stringify((session.participants ?? []).map((participant: any) => ({
+        id: participant.discordId,
+        username: participant.username,
+      }))),
+      last_q_announcement_message_id: session.lastQAnnouncementMessageId ?? null,
+      created_by: session.createdBy,
+      created_at: session.createdAt,
+    };
   }
 
-  async getLatestIngameSession(): Promise<{ id: number; message_id: string; channel_id: string; participants: string; last_q_announcement_message_id: string | null; created_by: string; created_at: string; active: number } | undefined> {
+  async getLatestIngameSession(): Promise<{ id: number; message_id: string; channel_id: string; participants: string; last_q_announcement_message_id: string | null; created_by: string; created_at: Date; active: number } | undefined> {
     await this.ready;
-    return this.get('SELECT id, message_id, channel_id, participants, last_q_announcement_message_id, created_by, created_at, active FROM ingame_sessions ORDER BY created_at DESC LIMIT 1') as Promise<any>;
+    const session = await IngameSessionModel.findOne().sort({ createdAt: -1 }).lean();
+    if (!session) {
+      return undefined;
+    }
+
+    return {
+      id: session.id,
+      message_id: session.messageId,
+      channel_id: session.channelId,
+      participants: JSON.stringify((session.participants ?? []).map((participant: any) => ({
+        id: participant.discordId,
+        username: participant.username,
+      }))),
+      last_q_announcement_message_id: session.lastQAnnouncementMessageId ?? null,
+      created_by: session.createdBy,
+      created_at: session.createdAt,
+      active: session.active ? 1 : 0,
+    };
   }
 
   async addIngameSessionParticipant(sessionId: number, discordId: string, username: string): Promise<void> {
     await this.ready;
-    const session = await this.get<{ participants: string }>('SELECT participants FROM ingame_sessions WHERE id = ?', [sessionId]);
-    if (session) {
-      const participants = JSON.parse(session.participants) as Array<{ id: string; username: string }>;
-      if (!participants.find((p) => p.id === discordId)) {
-        participants.push({ id: discordId, username });
-        await this.run('UPDATE ingame_sessions SET participants = ? WHERE id = ?', [JSON.stringify(participants), sessionId]);
-      }
-    }
+    await IngameSessionModel.updateOne(
+      { id: sessionId, 'participants.discordId': { $ne: discordId } },
+      { $push: { participants: { discordId, username } } }
+    );
   }
 
   async removeIngameSessionParticipant(sessionId: number, discordId: string): Promise<void> {
     await this.ready;
-    const session = await this.get<{ participants: string }>('SELECT participants FROM ingame_sessions WHERE id = ?', [sessionId]);
-    if (session) {
-      const participants = JSON.parse(session.participants) as Array<{ id: string; username: string }>;
-      const filtered = participants.filter((p) => p.id !== discordId);
-      await this.run('UPDATE ingame_sessions SET participants = ? WHERE id = ?', [JSON.stringify(filtered), sessionId]);
-    }
+    await IngameSessionModel.updateOne({ id: sessionId }, { $pull: { participants: { discordId } } });
   }
 
   async setIngameSessionAnnouncementMessageId(sessionId: number, messageId: string): Promise<void> {
     await this.ready;
-    await this.run('UPDATE ingame_sessions SET last_q_announcement_message_id = ? WHERE id = ?', [messageId, sessionId]);
+    await IngameSessionModel.updateOne({ id: sessionId }, { $set: { lastQAnnouncementMessageId: messageId } });
   }
 
   async removeIngameSessionQParticipant(sessionId: number, discordId: string): Promise<void> {
     await this.ready;
-    await this.run('DELETE FROM ingame_session_q_participants WHERE session_id = ? AND discord_id = ?', [sessionId, discordId]);
+    await IngameSessionQParticipantModel.deleteOne({ sessionId, discordId });
   }
 
   async getIngameSessionParticipants(sessionId: number): Promise<Array<{ id: string; username: string }>> {
     await this.ready;
-    const session = await this.get<{ participants: string }>('SELECT participants FROM ingame_sessions WHERE id = ?', [sessionId]);
-    if (session) {
-      return JSON.parse(session.participants) as Array<{ id: string; username: string }>;
+    const session = await IngameSessionModel.findOne({ id: sessionId }).lean();
+    if (!session) {
+      return [];
     }
 
-    return [];
+    return (session.participants ?? []).map((participant: any) => ({
+      id: participant.discordId,
+      username: participant.username,
+    }));
   }
 
   async closeIngameSession(sessionId: number): Promise<void> {
     await this.ready;
-    await this.run('UPDATE ingame_sessions SET active = 0 WHERE id = ?', [sessionId]);
-    await this.run('DELETE FROM ingame_session_q_participants WHERE session_id = ?', [sessionId]);
+    await IngameSessionModel.updateOne({ id: sessionId }, { $set: { active: false } });
+    await IngameSessionQParticipantModel.deleteMany({ sessionId });
   }
 
-  // ============ INGAME Q TRACKING ============
   async addIngameSessionQParticipant(sessionId: number, discordId: string, username: string): Promise<boolean> {
     await this.ready;
-    const result = await this.run(
-      'INSERT OR IGNORE INTO ingame_session_q_participants (session_id, discord_id, username, joined_at) VALUES (?, ?, ?, ?)',
-      [sessionId, discordId, username, new Date().toISOString()]
+    const id = await this.nextId('ingame_session_q_participants');
+    const result = await IngameSessionQParticipantModel.updateOne(
+      { sessionId, discordId },
+      {
+        $setOnInsert: {
+          id,
+          sessionId,
+          discordId,
+          username,
+          joinedAt: new Date(),
+        },
+      },
+      { upsert: true }
     );
-    return result.changes > 0;
+
+    return Number(result.upsertedCount ?? 0) > 0;
   }
 
-  async getIngameSessionQParticipants(sessionId: number): Promise<Array<{ id: string; username: string; joined_at: string }>> {
+  async getIngameSessionQParticipants(sessionId: number): Promise<Array<{ id: string; username: string; joined_at: Date }>> {
     await this.ready;
-    return this.all(
-      'SELECT discord_id as id, username, joined_at FROM ingame_session_q_participants WHERE session_id = ? ORDER BY joined_at ASC',
-      [sessionId]
-    );
+    const participants = await IngameSessionQParticipantModel.find({ sessionId }).sort({ joinedAt: 1 }).lean();
+    return participants.map((participant) => ({
+      id: participant.discordId,
+      username: participant.username,
+      joined_at: participant.joinedAt,
+    }));
   }
 
   async incrementIngameQMiss(discordId: string, username: string): Promise<{ miss_count: number }> {
     await this.ready;
-    const existing = await this.get<{ miss_count: number }>('SELECT miss_count FROM ingame_q_misses WHERE discord_id = ? LIMIT 1', [discordId]);
-    const now = new Date().toISOString();
+    const result = await IngameQMissModel.findOneAndUpdate(
+      { discordId },
+      {
+        $set: {
+          username,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: { discordId },
+        $inc: { missCount: 1 },
+      },
+      { upsert: true, new: true }
+    ).lean();
 
-    if (!existing) {
-      await this.run(
-        'INSERT INTO ingame_q_misses (discord_id, username, miss_count, updated_at) VALUES (?, ?, 1, ?)',
-        [discordId, username, now]
-      );
-      return { miss_count: 1 };
-    }
-
-    const missCount = Number(existing.miss_count || 0) + 1;
-    await this.run(
-      'UPDATE ingame_q_misses SET username = ?, miss_count = ?, updated_at = ? WHERE discord_id = ?',
-      [username, missCount, now, discordId]
-    );
-
-    return { miss_count: missCount };
+    return { miss_count: Number(result?.missCount ?? 0) };
   }
 
   async resetIngameQMiss(discordId: string): Promise<void> {
     await this.ready;
-    await this.run('DELETE FROM ingame_q_misses WHERE discord_id = ?', [discordId]);
+    await IngameQMissModel.deleteOne({ discordId });
   }
 
   async getIngameQWaitingCount(): Promise<number> {
     await this.ready;
-    const row = await this.get<{ count: number }>('SELECT COUNT(*) as count FROM ingame_q_misses WHERE miss_count > 0');
-    return Number(row?.count || 0);
+    return IngameQMissModel.countDocuments({ missCount: { $gt: 0 } });
   }
 
-  // ============ BOT LOGS ============
   async addBotLog(action: string, userId: string, username: string, details?: string): Promise<void> {
     await this.ready;
-    await this.run('INSERT INTO bot_logs (action, user_id, username, details, logged_at) VALUES (?, ?, ?, ?, ?)', [action, userId, username, details || null, new Date().toISOString()]);
+    const id = await this.nextId('bot_logs');
+    await BotLogModel.create({
+      id,
+      action,
+      userId,
+      username,
+      details: details || null,
+      loggedAt: new Date(),
+    });
   }
 
   async close(): Promise<void> {
     await this.ready;
-    await new Promise<void>((resolve, reject) => {
-      this.db.close((err: Error | null) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        resolve();
-      });
-    });
+    await disconnectMongo();
   }
 }
 
-// Export singleton instance
 export const db = new DatabaseManager();

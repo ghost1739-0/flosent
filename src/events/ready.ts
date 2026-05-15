@@ -43,7 +43,7 @@ async function finalizeAktiflikSessionByRow(
     message_id: string;
     channel_id: string;
     target_role_id: string;
-    ends_at: string;
+    ends_at: Date;
     active: number;
   }
 ): Promise<void> {
@@ -137,7 +137,7 @@ async function recoverAndScheduleAktiflikSessions(client: BotClient): Promise<vo
       continue;
     }
 
-    const msLeft = new Date(session.ends_at).getTime() - Date.now();
+    const msLeft = session.ends_at.getTime() - Date.now();
     if (msLeft <= 0) {
       await finalizeAktiflikSessionByRow(client, guild, session);
       continue;
@@ -159,7 +159,7 @@ async function sweepExpiredAktiflikSessions(client: BotClient): Promise<void> {
   }
 
   for (const session of sessions) {
-    if (new Date(session.ends_at).getTime() > Date.now()) {
+    if (session.ends_at.getTime() > Date.now()) {
       continue;
     }
 
