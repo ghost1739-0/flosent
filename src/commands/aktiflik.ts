@@ -51,6 +51,7 @@ export async function sendAktiflikPanelMessage(
     ?? await guild.channels.fetch(AKTIFLIK_PANEL_CHANNEL_ID).catch(() => null);
 
   if (!panelChannel || !('send' in panelChannel)) {
+    console.error(`[Aktiflik Panel] ❌ KANAL BULUNAMADI: ${AKTIFLIK_PANEL_CHANNEL_ID}`);
     return;
   }
 
