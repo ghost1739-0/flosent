@@ -696,9 +696,10 @@ export async function execute(interaction: Interaction): Promise<void> {
               .setThumbnail(interaction.user.displayAvatarURL());
 
             await logChannel.send({
-              content: banliRole ? `<@&${banliRole.id}> Yeni bir ban bildirimi geldi!` : 'Yeni bir ban bildirimi geldi!',
+              // Do not ping role in log channel; embed contains details without notifications
+              content: 'Yeni bir ban bildirimi geldi!',
               embeds: [reportEmbed],
-              allowedMentions: { roles: banliRole ? [banliRole.id] : [] },
+              allowedMentions: { parse: [] },
             });
           }
 

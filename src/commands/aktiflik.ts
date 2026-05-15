@@ -185,13 +185,12 @@ export async function sendAktiflikPanelMessage(
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(permButton);
 
   try {
-    const mentionIds = missedMembers.map((member) => member.id);
-    const missedListContent = `❌ Katılmayanlar (${missedMembers.length})\n${formatMemberMentionLines(missedMembers, '❌')}`;
-
+    // Send only embed (embed fields contain mention strings but embeds do not trigger notifications)
     await panelChannel.send({
-      content: missedListContent,
+      content: null,
       embeds: [panelEmbed],
-      allowedMentions: { users: mentionIds },
+      // Ensure no user pings from content
+      allowedMentions: { parse: [] },
       components: [row],
     });
 
@@ -211,17 +210,15 @@ export async function sendAktiflikPanelMessage(
 
     try {
       // If sending to the configured panel channel fails, try sending to the main aktiflik channel as a fallback
-      const mentionIds = missedMembers.map((member) => member.id);
       const panelEmbedFallback = buildAktiflikPanelEmbed(sessionId, missedMembers, joinedMembers, roleMembersCount);
-      const missedListContent = `❌ Katılmayanlar (${missedMembers.length})\n${formatMemberMentionLines(missedMembers, '❌')}`;
 
       const fallbackChannel = guild.channels.cache.get(AKTIFLIK_CHANNEL_ID) ?? await guild.channels.fetch(AKTIFLIK_CHANNEL_ID).catch(() => null);
       if (fallbackChannel && 'send' in fallbackChannel) {
         await fallbackChannel.send({
-          content: missedListContent,
+          content: null,
           embeds: [panelEmbedFallback],
           components: [row],
-          allowedMentions: { users: mentionIds },
+          allowedMentions: { parse: [] },
         });
         console.log(`[Aktiflik Panel] Panel mesajı fallback kanala gönderildi. Session ${sessionId}, Kanal: ${AKTIFLIK_CHANNEL_ID}`);
       } else {

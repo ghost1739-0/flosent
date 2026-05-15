@@ -37,7 +37,7 @@ export async function execute(message: Message): Promise<void> {
   const session = await client.db.getLatestIngameSession();
   if (!session) {
     if (logChannel && 'send' in logChannel) {
-      await logChannel.send({ content: `<@${message.author.id}> q yazdı ama aktif bir ingame oturumu yok.` });
+      await logChannel.send({ content: `${message.author.username} q yazdı ama aktif bir ingame oturumu yok.` });
     }
     return;
   }
@@ -55,10 +55,7 @@ export async function execute(message: Message): Promise<void> {
   } else {
     const miss = await client.db.incrementIngameQMiss(message.author.id, message.author.username);
     if (miss.miss_count >= 3 && logChannel && 'send' in logChannel) {
-      await logChannel.send({
-        content: `<@${message.author.id}> 3 defa q atıp ingame'e girmedi.`,
-        allowedMentions: { users: [message.author.id] },
-      });
+      await logChannel.send({ content: `${message.author.username} 3 defa q atıp ingame'e girmedi.` });
       await client.db.resetIngameQMiss(message.author.id);
     }
   }
@@ -84,7 +81,7 @@ export async function execute(message: Message): Promise<void> {
   }
 
   if (logChannel && 'send' in logChannel) {
-    await logChannel.send({ content: `<@${message.author.id}> q yazdı.` });
+    await logChannel.send({ content: `${message.author.username} q yazdı.` });
   }
 }
 
