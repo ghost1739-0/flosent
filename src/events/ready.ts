@@ -136,7 +136,6 @@ async function finalizeAktiflikSessionByRow(
 
   try {
     await message.edit({
-      content: null,
       embeds: [closedEmbed],
       components: [row],
     });

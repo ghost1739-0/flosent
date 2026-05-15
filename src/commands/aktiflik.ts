@@ -187,7 +187,6 @@ export async function sendAktiflikPanelMessage(
   try {
     // Send only embed (embed fields contain mention strings but embeds do not trigger notifications)
     await panelChannel.send({
-      content: null,
       embeds: [panelEmbed],
       // Ensure no user pings from content
       allowedMentions: { parse: [] },
@@ -215,7 +214,6 @@ export async function sendAktiflikPanelMessage(
       const fallbackChannel = guild.channels.cache.get(AKTIFLIK_CHANNEL_ID) ?? await guild.channels.fetch(AKTIFLIK_CHANNEL_ID).catch(() => null);
       if (fallbackChannel && 'send' in fallbackChannel) {
         await fallbackChannel.send({
-          content: null,
           embeds: [panelEmbedFallback],
           components: [row],
           allowedMentions: { parse: [] },
@@ -323,7 +321,6 @@ export const finalizeAktiflikSession = async (
   try {
     if (message) {
       await message.edit({
-        content: null,
         embeds: [closedEmbed],
         components: [row],
       });
