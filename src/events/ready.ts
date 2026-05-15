@@ -115,6 +115,12 @@ async function finalizeAktiflikSessionByRow(
 
   await message.edit({ embeds: [closedEmbed], components: [row] });
   await sendAktiflikPanelMessage(client, guild, session.id, missedMembers, joinedMembers, roleMembers.length);
+
+  await client.db.addBotLog(
+    'aktiflik_otomatik_kapandi',
+    'SYSTEM',
+    'Otomatik Kapatma'
+  );
 }
 
 async function recoverAndScheduleAktiflikSessions(client: BotClient): Promise<void> {
