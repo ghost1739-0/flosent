@@ -46,17 +46,22 @@ const command: BotCommand = {
       }
 
       let movedCount = 0;
+      const voiceChannels = guild.channels.cache.filter(
+        (channel): channel is VoiceChannel | StageChannel => channel instanceof VoiceChannel || channel instanceof StageChannel
+      );
 
-      // Iterate over all voice states
-      for (const [memberId, voiceState] of guild.voiceStates.cache) {
-        const member = voiceState.member;
-        if (!member) continue;
-        if (member.user.bot) continue;
+      for (const voiceChannel of voiceChannels.values()) {
+        if (voiceChannel.id === TARGET_VOICE_CHANNEL_ID) {
+          continue;
+        }
 
-        // Only move if they're in a voice channel and not already in target
-        if (voiceState.channelId && voiceState.channelId !== TARGET_VOICE_CHANNEL_ID) {
+        for (const member of voiceChannel.members.values()) {
+          if (member.user.bot) {
+            continue;
+          }
+
           try {
-            await member.voice.setChannel(TARGET_VOICE_CHANNEL_ID as any);
+            await member.voice.setChannel(targetChannel.id);
             movedCount++;
           } catch (err) {
             console.error(`Üye taşıma hatası (${member.displayName}):`, err);
