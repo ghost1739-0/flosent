@@ -125,7 +125,7 @@ export const finalizeAktiflikSession = async (
   console.log(`[Aktiflik] Roldeki toplam kisi (fetch sonrasi): ${roleMembers.length}`);
 
   const participants = await client.db.getAktiflikSessionParticipants(sessionId);
-  const joinedIds = new Set(participants.map((p) => p.id));
+  const joinedIds = new Set(participants.map((p: { id: string }) => p.id));
 
   const joinedMembers = roleMembers.filter((m) => joinedIds.has(m.id));
   const missedMembers = roleMembers.filter((m) => !joinedIds.has(m.id));

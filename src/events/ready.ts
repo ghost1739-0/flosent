@@ -78,7 +78,7 @@ async function finalizeAktiflikSessionByRow(
   const roleMembers = role ? Array.from(role.members.values()) : [];
 
   const participants = await client.db.getAktiflikSessionParticipants(session.id);
-  const joinedIds = new Set(participants.map((participant) => participant.id));
+  const joinedIds = new Set(participants.map((participant: { id: string }) => participant.id));
   const joinedMembers = roleMembers.filter((member) => joinedIds.has(member.id));
   const missedMembers = roleMembers.filter((member) => !joinedIds.has(member.id));
 
