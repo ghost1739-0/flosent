@@ -252,9 +252,14 @@ export class DatabaseManager {
     }));
   }
 
-  async closeAktiflikSession(sessionId: number): Promise<void> {
+  async closeAktiflikSession(sessionId: number): Promise<boolean> {
     await this.ready;
-    await AktiflikSessionModel.updateOne({ id: sessionId }, { $set: { active: false } });
+    const result = await AktiflikSessionModel.updateOne({ id: sessionId, active: true }, { $set: { active: false } });
+    // Return true if we actually changed the document from active:true -> active:false
+    // Support both modern and older mongoose result shapes
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const modified = Number((result as any).modifiedCount ?? (result as any).nModified ?? 0);
+    return modified > 0;
   }
 
   async markAktiflikJoined(discordId: string, username: string): Promise<void> {

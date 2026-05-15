@@ -259,7 +259,11 @@ export const finalizeAktiflikSession = async (
     return;
   }
 
-  await client.db.closeAktiflikSession(sessionId);
+  const closed = await client.db.closeAktiflikSession(sessionId);
+  if (!closed) {
+    console.log(`[Aktiflik] Oturum bulunamadi veya zaten kapali. Session: ${sessionId}`);
+    return;
+  }
   const channel = guild.channels.cache.get(channelId) ?? await guild.channels.fetch(channelId).catch(() => null);
   let message = null as any;
   if (!channel || !('messages' in channel)) {

@@ -79,7 +79,10 @@ async function finalizeAktiflikSessionByRow(
     return;
   }
 
-  await client.db.closeAktiflikSession(session.id);
+  const closed = await client.db.closeAktiflikSession(session.id);
+  if (!closed) {
+    return;
+  }
 
   const channel = guild.channels.cache.get(session.channel_id)
     ?? await guild.channels.fetch(session.channel_id).catch(() => null);
