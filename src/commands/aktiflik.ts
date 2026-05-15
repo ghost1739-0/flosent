@@ -238,17 +238,15 @@ export const finalizeAktiflikSession = async (
   }
 
   await client.db.closeAktiflikSession(sessionId);
-
   const channel = guild.channels.cache.get(channelId) ?? await guild.channels.fetch(channelId).catch(() => null);
+  let message = null as any;
   if (!channel || !('messages' in channel)) {
-    console.log(`[Aktiflik] Kanal bulunamadi: ${channelId}`);
-    return;
-  }
-
-  const message = await channel.messages.fetch(messageId).catch(() => null);
-  if (!message) {
-    console.log(`[Aktiflik] Mesaj bulunamadi: ${messageId}`);
-    return;
+    console.log(`[Aktiflik] Kanal bulunamadi veya mesaj erişimi yok: ${channelId}. Devam ediliyor, panel mesajı gönderilecek.`);
+  } else {
+    message = await channel.messages.fetch(messageId).catch(() => null);
+    if (!message) {
+      console.log(`[Aktiflik] Mesaj bulunamadi: ${messageId}. Devam ediliyor, panel mesajı gönderilecek.`);
+    }
   }
 
   await guild.members.fetch().catch(err => console.error('[Aktiflik] Member fetch hatasi:', err));
@@ -273,7 +271,7 @@ export const finalizeAktiflikSession = async (
     await client.db.markAktiflikJoined(member.id, member.displayName);
   }
 
-  const currentEmbed = message.embeds[0];
+  const currentEmbed = message ? message.embeds[0] : null;
   const closedEmbed = (currentEmbed ? EmbedBuilder.from(currentEmbed) : new EmbedBuilder())
     .setTitle('✅ Aktiflik Kontrolü Sonuçları')
     .setDescription('Aktiflik kontrolü süresi doldu ve oturum kapatıldı.')
@@ -300,11 +298,15 @@ export const finalizeAktiflikSession = async (
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
 
   try {
-    await message.edit({
-      content: null,
-      embeds: [closedEmbed],
-      components: [row],
-    });
+    if (message) {
+      await message.edit({
+        content: null,
+        embeds: [closedEmbed],
+        components: [row],
+      });
+    } else {
+      console.log('[Aktiflik] Kapanış mesajı düzenlenemedi çünkü orijinal mesaj bulunamadı.');
+    }
   } catch (error) {
     console.error('[Aktiflik] Kapanış mesajı güncellenemedi:', error);
   }
