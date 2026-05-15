@@ -43,6 +43,7 @@ const BanSchema = new Schema(
     discordId: { type: String, required: true },
     username: { type: String, required: true },
     reason: { type: String, required: true },
+    banCode: { type: String, required: true },
     bannedBy: { type: String, required: true },
     bannedAt: { type: Date, required: true },
     active: { type: Boolean, default: true },

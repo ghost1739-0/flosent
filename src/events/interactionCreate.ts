@@ -1,4 +1,14 @@
-import { Interaction, EmbedBuilder, Guild, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  Interaction,
+  ModalBuilder,
+  StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} from 'discord.js';
 import type { BotEvent, BotClient } from '../types';
 import { finalizeAktiflikSession } from '../commands/aktiflik';
 import { buildUpdatedIngameEmbed, syncIngameAnnouncement, getIngameTotalCapacity } from '../utils/ingameAnnouncement';
@@ -9,6 +19,17 @@ const FARMVER_CHANNEL_ID = '1500452813942030407';
 const AKTIFLIK_PANEL_PERM_ROLE_ID = '1500135055148843147';
 const AKTIFLIK_PERM_CONFIRM_PREFIX = 'aktiflik_permcek_confirm_';
 const AKTIFLIK_PERM_CANCEL_PREFIX = 'aktiflik_permcek_cancel_';
+const BAN_PANEL_LOG_CHANNEL_ID = '1504489762281619666';
+const BAN_PANEL_OG_ROL_ID = '1500135055207567599';
+const BAN_PANEL_SECOND_OG_ROL_ID = '1500135149403246644';
+const BAN_PANEL_BOSS_ROL_ID = '1500135055224340565';
+const BAN_PANEL_BANLI_ROL_ID = '1500909878213087374';
+const BAN_PANEL_REPORT_MODAL_ID = 'banpanel_report_modal';
+const BAN_PANEL_STAFF_OPEN_ID = 'banpanel_staff_open';
+const BAN_PANEL_LIST_ID = 'banpanel_list';
+const BAN_PANEL_SELECT_ID = 'banpanel_select_ban';
+const BAN_PANEL_UNBAN_CONFIRM_PREFIX = 'banpanel_unban_confirm_';
+const BAN_PANEL_UNBAN_CANCEL_PREFIX = 'banpanel_unban_cancel_';
 
 const turkishDate = (date: Date = new Date()) => {
   return date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
@@ -37,6 +58,75 @@ function parseAktiflikPermConfirmCustomId(customId: string): { sessionId: number
     channelId: match[2],
     messageId: match[3],
   };
+}
+
+function hasBanStaffAccess(member: unknown): boolean {
+  if (!member || typeof member !== 'object' || !('roles' in member)) {
+    return false;
+  }
+
+  const roles = (member as { roles?: { cache?: { has: (roleId: string) => boolean } } | string[] }).roles;
+  if (!roles) {
+    return false;
+  }
+
+  const roleIds = [BAN_PANEL_OG_ROL_ID, BAN_PANEL_SECOND_OG_ROL_ID, BAN_PANEL_BOSS_ROL_ID];
+
+  if (Array.isArray(roles)) {
+    return roleIds.some((roleId) => roles.includes(roleId));
+  }
+
+  if ('cache' in roles && roles.cache) {
+    return roleIds.some((roleId) => roles.cache?.has(roleId) ?? false);
+  }
+
+  return false;
+}
+
+function formatBanListMessage(bans: Array<{ id: number; discord_id: string; username: string; reason: string; ban_code: string }>): string {
+  if (!bans.length) {
+    return 'ℹ️ Şu anda aktif banlı kullanıcı kaydı bulunmuyor.';
+  }
+
+  const lines: string[] = ['**📋 Güncel Ban Listesi**', ''];
+  for (const ban of bans) {
+    const line = `• kişi <@${ban.discord_id}> sebep ${ban.reason} ban id ${ban.ban_code}`;
+    const candidate = [...lines, line].join('\n');
+    if (candidate.length > 1900) {
+      lines.push(`... ve ${bans.length - lines.length + 2} kişi daha`);
+      break;
+    }
+    lines.push(line);
+  }
+
+  return lines.join('\n');
+}
+
+function buildBanPanelModal(): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId(BAN_PANEL_REPORT_MODAL_ID)
+    .setTitle('Flosent | Ban Sebebi Bildirimi');
+
+  const reasonInput = new TextInputBuilder()
+    .setCustomId('banpanel_reason')
+    .setLabel('Neden Ban Yediniz?')
+    .setPlaceholder('Sebep...')
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true);
+
+  const banCodeInput = new TextInputBuilder()
+    .setCustomId('banpanel_ban_code')
+    .setLabel('Ban ID Numaranız')
+    .setPlaceholder('Örn: XKPWÖ')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(reasonInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(banCodeInput)
+  );
+
+  return modal;
 }
 
 export async function execute(interaction: Interaction): Promise<void> {
@@ -73,6 +163,126 @@ export async function execute(interaction: Interaction): Promise<void> {
     // Handle button and select menu interactions
     if (interaction.isButton()) {
       const customId = interaction.customId;
+
+      if (customId === 'banpanel_report_open') {
+        await interaction.showModal(buildBanPanelModal());
+        return;
+      }
+
+      if (customId === BAN_PANEL_LIST_ID) {
+        try {
+          await interaction.deferReply({ ephemeral: true });
+          const bans = await client.db.getActiveBans();
+          await interaction.editReply({ content: formatBanListMessage(bans) });
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error('Ban listesi button hatası:', error);
+          await interaction.editReply({ content: '❌ Bir hata oluştu.' });
+        }
+        return;
+      }
+
+      if (customId === BAN_PANEL_STAFF_OPEN_ID) {
+        try {
+          await interaction.deferReply({ ephemeral: true });
+          if (!hasBanStaffAccess(interaction.member)) {
+            await interaction.editReply({ content: '❌ Bu işlemi sadece yetkili personeller gerçekleştirebilir.' });
+            return;
+          }
+
+          const bans = await client.db.getActiveBans();
+          if (!bans.length) {
+            await interaction.editReply({ content: 'ℹ️ Şu anda sistemde kayıtlı ban bildirimi bulunmuyor.' });
+            return;
+          }
+
+          const options = bans.slice(0, 25).map((ban) => ({
+            label: ban.username.slice(0, 100),
+            value: String(ban.id),
+            description: `ID: ${ban.ban_code} | Sebep: ${ban.reason.slice(0, 50)}`.slice(0, 100),
+          }));
+
+          const select = new StringSelectMenuBuilder()
+            .setCustomId(BAN_PANEL_SELECT_ID)
+            .setPlaceholder('Banı açılacak kullanıcıyı seçin...')
+            .addOptions(options);
+
+          const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+          const extraNote = bans.length > 25 ? `\n\n⚠️ İlk 25 kayıt listeleniyor, toplam: ${bans.length}` : '';
+
+          await interaction.editReply({
+            content: `Lütfen işlem yapmak istediğiniz kullanıcıyı listeden seçin:${extraNote}`,
+            components: [row],
+          });
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error('Ban açılan button hatası:', error);
+          await interaction.editReply({ content: '❌ Bir hata oluştu.' });
+        }
+        return;
+      }
+
+      if (customId.startsWith(BAN_PANEL_UNBAN_CANCEL_PREFIX)) {
+        await interaction.deferReply({ ephemeral: true });
+        await interaction.editReply({ content: 'İşlem iptal edildi.' });
+        return;
+      }
+
+      if (customId.startsWith(BAN_PANEL_UNBAN_CONFIRM_PREFIX)) {
+        try {
+          await interaction.deferReply({ ephemeral: true });
+          const banId = Number(customId.replace(BAN_PANEL_UNBAN_CONFIRM_PREFIX, ''));
+          const ban = await client.db.getBanById(banId);
+
+          if (!ban) {
+            await interaction.editReply({ content: '❌ Kayıt bulunamadı.' });
+            return;
+          }
+
+          const guild = interaction.guild;
+          if (!guild) {
+            await interaction.editReply({ content: '❌ Bu işlem sadece sunucuda yapılabilir.' });
+            return;
+          }
+
+          const member = await guild.members.fetch(ban.discord_id).catch(() => null);
+          const banliRole = guild.roles.cache.get(BAN_PANEL_BANLI_ROL_ID);
+
+          if (member && banliRole && member.roles.cache.has(banliRole.id)) {
+            await member.roles.remove(banliRole).catch(() => null);
+          }
+
+          if (member) {
+            await member.send('Banın açıldı gir Wl al').catch(() => null);
+          }
+
+          await client.db.unbanUser(banId);
+
+          const logChannel = guild.channels.cache.get(BAN_PANEL_LOG_CHANNEL_ID)
+            ?? await guild.channels.fetch(BAN_PANEL_LOG_CHANNEL_ID).catch(() => null);
+          if (logChannel && 'send' in logChannel) {
+            const logEmbed = new EmbedBuilder()
+              .setTitle('🔓 Ceza Onayla Kaldırıldı')
+              .setColor('Green')
+              .setTimestamp(new Date())
+              .addFields(
+                { name: '🎯 İşlem Yapılan', value: `<@${ban.discord_id}>`, inline: true },
+                { name: '👮 Onaylayan Yetkili', value: `<@${interaction.user.id}>`, inline: true },
+                { name: '📝 Eski Sebep', value: ban.reason, inline: false },
+                { name: '🆔 Ban ID', value: ban.ban_code, inline: true }
+              );
+
+            await logChannel.send({ embeds: [logEmbed] });
+          }
+
+          await interaction.editReply({ content: '✅ Onaylandı.' });
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error('Ban kaldırma onay button hatası:', error);
+          await interaction.editReply({ content: '❌ Hata onaylanamadı.' });
+        }
+        return;
+      }
 
       // Aktiflik onayla button
       if (customId.startsWith('aktiflik_onayla')) {
@@ -400,8 +610,98 @@ export async function execute(interaction: Interaction): Promise<void> {
 
     }
 
+    if (interaction.isModalSubmit()) {
+      if (interaction.customId === BAN_PANEL_REPORT_MODAL_ID) {
+        try {
+          await interaction.deferReply({ ephemeral: true });
+
+          const reason = interaction.fields.getTextInputValue('banpanel_reason').trim();
+          const banCode = interaction.fields.getTextInputValue('banpanel_ban_code').trim();
+
+          await client.db.addBan(interaction.user.id, interaction.user.username, reason, banCode, interaction.user.id);
+
+          const guild = interaction.guild;
+          const logChannel = guild
+            ? guild.channels.cache.get(BAN_PANEL_LOG_CHANNEL_ID) ?? await guild.channels.fetch(BAN_PANEL_LOG_CHANNEL_ID).catch(() => null)
+            : null;
+
+          if (guild && logChannel && 'send' in logChannel) {
+            const banliRole = guild.roles.cache.get(BAN_PANEL_BANLI_ROL_ID);
+            const reportEmbed = new EmbedBuilder()
+              .setTitle('🚫 Yeni Ban Sebebi Bildirimi')
+              .setColor('Red')
+              .setTimestamp(interaction.createdAt)
+              .addFields(
+                { name: '👤 Kullanıcı', value: `<@${interaction.user.id}> (${interaction.user.username})`, inline: false },
+                { name: '📝 Belirtilen Sebep', value: reason, inline: false },
+                { name: '🆔 Ban ID', value: banCode, inline: true }
+              )
+              .setThumbnail(interaction.user.displayAvatarURL());
+
+            await logChannel.send({
+              content: banliRole ? `<@&${banliRole.id}> Yeni bir ban bildirimi geldi!` : 'Yeni bir ban bildirimi geldi!',
+              embeds: [reportEmbed],
+              allowedMentions: { roles: banliRole ? [banliRole.id] : [] },
+            });
+          }
+
+          await interaction.editReply({ content: '✅ Bilgileriniz başarıyla yetkililere iletildi.' });
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error('Ban sebebi modal hatası:', error);
+          await interaction.editReply({ content: '❌ Bir hata oluştu.' });
+        }
+        return;
+      }
+    }
+
     // Handle select menus
     if (interaction.isStringSelectMenu()) {
+      if (interaction.customId === BAN_PANEL_SELECT_ID) {
+        try {
+          await interaction.deferReply({ ephemeral: true });
+          const banId = Number(interaction.values[0]);
+          const ban = await client.db.getBanById(banId);
+
+          if (!ban) {
+            await interaction.editReply({ content: '❌ Bu kullanıcı artık listede bulunmuyor.' });
+            return;
+          }
+
+          const embed = new EmbedBuilder()
+            .setTitle('🔎 Kullanıcı Ban Detayı')
+            .setColor('Blue')
+            .addFields(
+              { name: 'Kişi', value: `<@${ban.discord_id}>`, inline: true },
+              { name: 'Ban ID', value: ban.ban_code, inline: true },
+              { name: 'Sebep', value: ban.reason, inline: false }
+            );
+
+          const yesButton = new ButtonBuilder()
+            .setCustomId(`banpanel_unban_confirm_${ban.id}`)
+            .setLabel('Banı Aç')
+            .setStyle(ButtonStyle.Success);
+
+          const noButton = new ButtonBuilder()
+            .setCustomId(`banpanel_unban_cancel_${ban.id}`)
+            .setLabel('İptal')
+            .setStyle(ButtonStyle.Secondary);
+
+          const row = new ActionRowBuilder<ButtonBuilder>().addComponents(yesButton, noButton);
+
+          await interaction.editReply({
+            content: 'Seçtiğiniz kullanıcının bilgileri aşağıdadır:',
+            embeds: [embed],
+            components: [row],
+          });
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error('Ban select menü hatası:', error);
+          await interaction.editReply({ content: '❌ Bir hata oluştu.' });
+        }
+        return;
+      }
+
       return;
     }
   } catch (error) {

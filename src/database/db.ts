@@ -267,16 +267,37 @@ export class DatabaseManager {
     };
   }
 
-  async addBan(discordId: string, username: string, reason: string, bannedBy: string): Promise<void> {
+  async addBan(discordId: string, username: string, reason: string, banCode: string, bannedBy: string): Promise<void> {
     await this.ready;
+    const now = new Date();
+    const existingBan = await BanModel.findOne({ discordId, active: true }).lean();
+
+    if (existingBan) {
+      await BanModel.updateOne(
+        { id: existingBan.id },
+        {
+          $set: {
+            username,
+            reason,
+            banCode,
+            bannedBy,
+            bannedAt: now,
+            active: true,
+          },
+        }
+      );
+      return;
+    }
+
     const id = await this.nextId('bans');
     await BanModel.create({
       id,
       discordId,
       username,
       reason,
+      banCode,
       bannedBy,
-      bannedAt: new Date(),
+      bannedAt: now,
       active: true,
     });
   }
@@ -291,6 +312,7 @@ export class DatabaseManager {
     discord_id: string;
     username: string;
     reason: string;
+    ban_code: string;
     banned_by: string;
     banned_at: Date;
   }>> {
@@ -301,6 +323,7 @@ export class DatabaseManager {
       discord_id: ban.discordId,
       username: ban.username,
       reason: ban.reason,
+      ban_code: ban.banCode,
       banned_by: ban.bannedBy,
       banned_at: ban.bannedAt,
     }));
@@ -311,7 +334,7 @@ export class DatabaseManager {
     await BanModel.updateOne({ id: banId }, { $set: { active: false } });
   }
 
-  async getBanById(banId: number): Promise<{ id: number; discord_id: string; username: string; reason: string; banned_by: string; banned_at: Date } | undefined> {
+  async getBanById(banId: number): Promise<{ id: number; discord_id: string; username: string; reason: string; ban_code: string; banned_by: string; banned_at: Date } | undefined> {
     await this.ready;
     const ban = await BanModel.findOne({ id: banId, active: true }).lean();
     if (!ban) {
@@ -323,6 +346,7 @@ export class DatabaseManager {
       discord_id: ban.discordId,
       username: ban.username,
       reason: ban.reason,
+      ban_code: ban.banCode,
       banned_by: ban.bannedBy,
       banned_at: ban.bannedAt,
     };
