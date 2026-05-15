@@ -78,7 +78,7 @@ export async function execute(message: Message): Promise<void> {
         const updatedEmbed = buildUpdatedIngameEmbed(currentEmbed, updatedParticipants, qParticipants, totalCapacity);
 
         await messageTarget.edit({ embeds: [updatedEmbed] });
-        await syncIngameAnnouncement(activeChannel, session, undefined, updatedEmbed);
+        await syncIngameAnnouncement(activeChannel, session, updatedEmbed.toJSON());
       }
     }
   }

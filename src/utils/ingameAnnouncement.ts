@@ -8,7 +8,8 @@ type IngameSessionLike = {
 };
 
 type IngameEmbedLike = {
-  fields: Array<{ name: string; value: string }>;
+  fields?: Array<{ name: string; value: string }>;
+  toJSON?: () => any;
 };
 
 type IngameStatus = {
@@ -17,7 +18,7 @@ type IngameStatus = {
 };
 
 export function getIngameTotalCapacity(embed: IngameEmbedLike | undefined): number {
-  const totalField = embed?.fields.find((field) => field.name === '📊 Toplam');
+  const totalField = (embed?.fields ?? []).find((field) => field.name === '📊 Toplam');
   if (!totalField) {
     return 20;
   }
@@ -33,7 +34,7 @@ export function getIngameTotalCapacity(embed: IngameEmbedLike | undefined): numb
 
 export function getIngameStatus(embed: IngameEmbedLike | undefined): IngameStatus {
   const totalCapacity = getIngameTotalCapacity(embed);
-  const participantField = embed?.fields.find((field) => field.name === '👥 Katılımcılar');
+  const participantField = (embed?.fields ?? []).find((field) => field.name === '👥 Katılımcılar');
   const participantCount = participantField && participantField.value.trim() !== 'Yok'
     ? participantField.value.split('\n').filter((line) => line.trim().length > 0).length
     : 0;
@@ -55,7 +56,8 @@ export async function syncIngameAnnouncement(
     return;
   }
 
-  const { totalCapacity, participantCount } = getIngameStatus(currentEmbed);
+  const normalizedEmbed = typeof currentEmbed?.toJSON === 'function' ? currentEmbed.toJSON() : currentEmbed;
+  const { totalCapacity, participantCount } = getIngameStatus(normalizedEmbed);
   const announcementContent = getIngameAnnouncementContent(totalCapacity, participantCount);
 
   if (session.last_q_announcement_message_id) {
@@ -82,7 +84,7 @@ export function buildUpdatedIngameEmbed(
   qParticipants: Array<{ id: string; username: string }>,
   totalCapacity: number
 ): EmbedBuilder {
-  const preservedFields = currentEmbed.fields.filter((field) => !['👥 Katılımcılar', '🟦 Q Atanlar', '📊 Toplam'].includes(field.name));
+  const preservedFields = (currentEmbed.fields ?? []).filter((field) => !['👥 Katılımcılar', '🟦 Q Atanlar', '📊 Toplam'].includes(field.name));
 
   return EmbedBuilder.from(currentEmbed as any).setFields(
     {
