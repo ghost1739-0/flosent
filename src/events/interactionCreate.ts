@@ -4,7 +4,7 @@ import { finalizeAktiflikSession } from '../commands/aktiflik';
 import { buildUpdatedIngameEmbed, syncIngameAnnouncement, getIngameTotalCapacity } from '../utils/ingameAnnouncement';
 
 const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
-const AKTIFLIK_ROLE_ID = '1500135055207567590';
+const AKTIFLIK_ROLE_ID = '1504751366826885230';
 const FARMVER_CHANNEL_ID = '1500452813942030407';
 const AKTIFLIK_PANEL_PERM_ROLE_ID = '1500135055148843147';
 const AKTIFLIK_PERM_CONFIRM_PREFIX = 'aktiflik_permcek_confirm_';
@@ -125,7 +125,7 @@ export async function execute(interaction: Interaction): Promise<void> {
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
             const participants = await client.db.getAktiflikSessionParticipants(sessionId);
-            const role = interaction.guild?.roles.cache.get('1500135055207567590');
+            const role = interaction.guild?.roles.cache.get('1504751366826885230');
             const total = role?.members.size ?? 0;
             const names = participants
               .map((p) => '✅ ' + (p.id ? `<@${p.id}>` : p.username))
