@@ -113,7 +113,17 @@ async function finalizeAktiflikSessionByRow(
     .setDisabled(true);
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
 
-  await message.edit({ embeds: [closedEmbed], components: [row] });
+  const mentionIds = missedMembers.map((member) => member.id);
+  const mentionContent = mentionIds.length
+    ? `Katılmayanlar: ${mentionIds.map((id) => `<@${id}>`).join(' ')}`
+    : 'Katılmayan yok.';
+
+  await message.edit({
+    content: mentionContent,
+    embeds: [closedEmbed],
+    components: [row],
+    allowedMentions: { users: mentionIds },
+  });
   await sendAktiflikPanelMessage(client, guild, session.id, missedMembers, joinedMembers, roleMembers.length);
 
   try {

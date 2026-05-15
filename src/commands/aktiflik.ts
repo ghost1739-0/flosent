@@ -47,7 +47,8 @@ export async function sendAktiflikPanelMessage(
   joinedMembers: GuildMember[],
   roleMembersCount: number
 ): Promise<void> {
-  const panelChannel = guild.channels.cache.get(AKTIFLIK_PANEL_CHANNEL_ID)
+  const panelChannel = (await client.channels.fetch(AKTIFLIK_PANEL_CHANNEL_ID).catch(() => null))
+    ?? guild.channels.cache.get(AKTIFLIK_PANEL_CHANNEL_ID)
     ?? await guild.channels.fetch(AKTIFLIK_PANEL_CHANNEL_ID).catch(() => null);
 
   if (!panelChannel || !('send' in panelChannel)) {
@@ -83,14 +84,16 @@ export async function sendAktiflikPanelMessage(
   try {
     const mentionIds = missedMembers.map((member) => member.id);
     console.log(`[Aktiflik Panel] Mention IDs: ${mentionIds.join(', ')}`);
-    
+
     await panelChannel.send({
-      content: missedMembers.length ? missedMembers.map((member) => `<@${member.id}>`).join(' ') : 'Katılmayan yok.',
+      content: missedMembers.length
+        ? `Katılmayanlar: ${missedMembers.map((member) => `<@${member.id}>`).join(' ')}`
+        : 'Katılmayan yok.',
       embeds: [panelEmbed],
       components: [row],
-      allowedMentions: { parse: ['users'], users: mentionIds },
+      allowedMentions: { users: mentionIds },
     });
-    
+
     console.log(`[Aktiflik Panel] Panel mesajı gönderildi. Session ${sessionId}, Katılmayan: ${missedMembers.length}`);
   } catch (error) {
     console.error(`[Aktiflik Panel] Hata oluştu:`, error);
@@ -173,8 +176,25 @@ export const finalizeAktiflikSession = async (
     .setDisabled(true);
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
 
-  await message.edit({ embeds: [closedEmbed], components: [row] });
+  const mentionIds = missedMembers.map((member) => member.id);
+  const mentionContent = mentionIds.length
+    ? `Katılmayanlar: ${mentionIds.map((id) => `<@${id}>`).join(' ')}`
+    : 'Katılmayan yok.';
+
+  await message.edit({
+    content: mentionContent,
+    embeds: [closedEmbed],
+    components: [row],
+    allowedMentions: { users: mentionIds },
+  });
   await sendAktiflikPanelMessage(client, guild, sessionId, missedMembers, joinedMembers, roleMembers.length);
+
+  await client.db.addBotLog(
+    'aktiflik_otomatik_kapandi',
+    'SYSTEM',
+    'SYSTEM',
+    `Oturum ${sessionId} otomatik kapatıldı. Katılmayan: ${missedMembers.length}`
+  );
 }
 
 const command: BotCommand = {
@@ -221,7 +241,7 @@ const command: BotCommand = {
 
       const embed = new EmbedBuilder()
         .setTitle('✅ Aktiflik Kontrolü')
-        .setDescription(`Aşağıdaki butona tıklayarak aktifliğinizi onaylayın!\n\n**Süre:** ${hours} Saniye (TEST)`)
+        .setDescription(`Aşağıdaki butona tıklayarak aktifliğinizi onaylayın!\n\n**Süre:** ${hours} Saat`)
         .setColor('Green')
         .addFields({ name: '📊 Katilim', value: `0/${roleMembersCount}`, inline: false })
         .setFooter({ text: `Aktiflik kontrolü — ${turkishDate()}` });
@@ -242,7 +262,7 @@ const command: BotCommand = {
         message.id,
         message.channelId,
         AKTIFLIK_ROLE_ID,
-        hours * 1,
+        hours * 3600,
         interaction.user.id
       );
 
@@ -254,7 +274,7 @@ const command: BotCommand = {
       await message.edit({ components: [activeRow] });
 
       // Start timeout for auto-close
-      console.log(`[Aktiflik] Zamanlayici kuruldu: ${hours} saniye (TEST) (${durationMs} ms)`);
+      console.log(`[Aktiflik] Zamanlayici kuruldu: ${hours} saat (${durationMs} ms)`);
       setTimeout(() => {
         console.log(`[Aktiflik] Otomatik kapatma tetiklendi. Session: ${sessionId}`);
         finalizeAktiflikSession(client, guild, sessionId, message.id, message.channelId)
