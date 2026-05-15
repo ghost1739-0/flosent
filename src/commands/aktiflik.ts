@@ -68,17 +68,32 @@ function buildAktiflikPanelSummary(
   joinedMembers: GuildMember[],
   roleMembersCount: number
 ): string {
-  const lines = [
-    `✅ Aktiflik kapandı. Oturum: ${sessionId}`,
-    `Toplam: ${roleMembersCount} | Katılan: ${joinedMembers.length} | Katılmayan: ${missedMembers.length}`,
-  ];
+  return `Oturum: ${sessionId} | Toplam: ${roleMembersCount} | Katılan: ${joinedMembers.length} | Katılmayan: ${missedMembers.length}`;
+}
 
-  if (missedMembers.length) {
-    const mentions = missedMembers.map((member) => `<@${member.id}>`).join(' ');
-    lines.push(`Katılmayanlar: ${mentions}`);
-  }
-
-  return lines.join('\n');
+function buildAktiflikPanelEmbed(
+  sessionId: number,
+  missedMembers: GuildMember[],
+  joinedMembers: GuildMember[],
+  roleMembersCount: number
+): EmbedBuilder {
+  return new EmbedBuilder()
+    .setTitle('✅ Aktiflik Kapatildi - Perm Paneli')
+    .setDescription('Katılmayanlardan perm çekmek için aşağıdaki butona bas.')
+    .setColor('Orange')
+    .addFields(
+      {
+        name: '📊 Katılım Özeti',
+        value: `Toplam: **${roleMembersCount}**\nKatılan: **${joinedMembers.length}**\nKatılmayan: **${missedMembers.length}**`,
+        inline: false,
+      },
+      {
+        name: `❌ Katılmayanlar (${missedMembers.length})`,
+        value: formatMemberMentionLines(missedMembers, '❌'),
+        inline: false,
+      }
+    )
+    .setFooter({ text: `Oturum: ${sessionId}` });
 }
 
 export async function sendAktiflikPanelMessage(
@@ -112,23 +127,7 @@ export async function sendAktiflikPanelMessage(
     }
   }
 
-  const panelEmbed = new EmbedBuilder()
-    .setTitle('✅ Aktiflik Kapatildi - Perm Paneli')
-    .setDescription('Katılmayanlardan perm çekmek için aşağıdaki butona bas.')
-    .setColor('Orange')
-    .addFields(
-      {
-        name: '📊 Katılım Özeti',
-        value: `Toplam: **${roleMembersCount}**\nKatılan: **${joinedMembers.length}**\nKatılmayan: **${missedMembers.length}**`,
-        inline: false,
-      },
-      {
-        name: `❌ Katılmayanlar (${missedMembers.length})`,
-        value: formatMemberMentionLines(missedMembers, '❌'),
-        inline: false,
-      }
-    )
-    .setFooter({ text: `Oturum: ${sessionId}` });
+  const panelEmbed = buildAktiflikPanelEmbed(sessionId, missedMembers, joinedMembers, roleMembersCount);
 
   const permButton = new ButtonBuilder()
     .setCustomId(`aktiflik_permcek_${sessionId}`)
@@ -141,13 +140,12 @@ export async function sendAktiflikPanelMessage(
     const mentionIds = missedMembers.map((member) => member.id);
     console.log(`[Aktiflik Panel] Mention IDs: ${mentionIds.join(', ')}`);
 
-    const summaryContent = buildAktiflikPanelSummary(sessionId, missedMembers, joinedMembers, roleMembersCount);
     const mentionContent = mentionIds.length > 0
       ? mentionIds.map((id) => `<@${id}>`).join(' ')
       : '';
 
     await panelChannel.send({
-      content: `${summaryContent}${mentionContent ? `\n${mentionContent}` : ''}`,
+      content: mentionContent,
       embeds: [panelEmbed],
       components: [row],
       allowedMentions: { parse: ['users'], users: mentionIds },
@@ -159,29 +157,18 @@ export async function sendAktiflikPanelMessage(
 
     try {
       const mentionIds = missedMembers.map((member) => member.id);
-      const summaryContent = buildAktiflikPanelSummary(sessionId, missedMembers, joinedMembers, roleMembersCount);
+      const panelEmbedFallback = buildAktiflikPanelEmbed(sessionId, missedMembers, joinedMembers, roleMembersCount);
 
       await panelChannel.send({
-        content: summaryContent,
+        content: mentionIds.length > 0 ? mentionIds.map((id) => `<@${id}>`).join(' ') : '',
+        embeds: [panelEmbedFallback],
         components: [row],
         allowedMentions: { parse: ['users'], users: mentionIds },
       });
 
-      console.log(`[Aktiflik Panel] Embed olmadan panel mesajı gönderildi. Session ${sessionId}`);
+      console.log(`[Aktiflik Panel] Panel mesajı fallback ile gönderildi. Session ${sessionId}`);
     } catch (fallbackError) {
-      console.error(`[Aktiflik Panel] Text fallback da başarısız oldu:`, fallbackError);
-
-      try {
-        const summaryContent = buildAktiflikPanelSummary(sessionId, missedMembers, joinedMembers, roleMembersCount);
-
-        await panelChannel.send({
-          content: summaryContent,
-        });
-
-        console.log(`[Aktiflik Panel] Son fallback ile düz metin gönderildi. Session ${sessionId}`);
-      } catch (finalError) {
-        console.error(`[Aktiflik Panel] Son fallback da başarısız oldu:`, finalError);
-      }
+      console.error(`[Aktiflik Panel] Panel fallback da başarısız oldu:`, fallbackError);
     }
   }
 }
