@@ -157,6 +157,36 @@ export class DatabaseManager {
     }));
   }
 
+  async getLatestAktiflikSession(): Promise<{
+    id: number;
+    message_id: string;
+    channel_id: string;
+    target_role_id: string;
+    duration_seconds: number;
+    created_by: string;
+    created_at: Date;
+    ends_at: Date;
+    active: number;
+  } | undefined> {
+    await this.ready;
+    const session = await AktiflikSessionModel.findOne().sort({ createdAt: -1 }).lean();
+    if (!session) {
+      return undefined;
+    }
+
+    return {
+      id: session.id,
+      message_id: session.messageId,
+      channel_id: session.channelId,
+      target_role_id: session.targetRoleId,
+      duration_seconds: session.durationSeconds,
+      created_by: session.createdBy,
+      created_at: session.createdAt,
+      ends_at: session.endsAt,
+      active: session.active ? 1 : 0,
+    };
+  }
+
   async getAktiflikSessionById(sessionId: number): Promise<{
     id: number;
     message_id: string;

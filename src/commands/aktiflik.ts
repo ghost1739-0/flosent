@@ -130,11 +130,12 @@ export const finalizeAktiflikSession = async (
   guild: Guild,
   sessionId: number,
   messageId: string,
-  channelId: string
+  channelId: string,
+  allowInactive: boolean = false
 ): Promise<void> => {
   console.log(`[Aktiflik] finalizeAktiflikSession basladi. Session: ${sessionId}, Message: ${messageId}`);
   const session = await client.db.getAktiflikSessionByMessageId(messageId);
-  if (!session || session.id !== sessionId || session.active !== 1) {
+  if (!session || session.id !== sessionId || (!allowInactive && session.active !== 1)) {
     console.log(`[Aktiflik] Oturum bulunamadi veya zaten kapali. Active: ${session?.active}`);
     return;
   }

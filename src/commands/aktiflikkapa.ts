@@ -29,17 +29,23 @@ const command: BotCommand = {
       const activeSessions = await client.db.getActiveAktiflikSessions();
       console.log(`[AktiflikKapa] Aktif oturumlar sorgulandi. Sayi: ${activeSessions?.length || 0}`);
       
-      if (!activeSessions || activeSessions.length === 0) {
-        // Log additional info to see why it's failing
-        console.log('[AktiflikKapa] Hic aktif oturum bulunamadi (active=1 olan kayit yok)');
+      let activeSession = activeSessions && activeSessions.length > 0
+        ? activeSessions[activeSessions.length - 1]
+        : await client.db.getLatestAktiflikSession();
+
+      if (!activeSession) {
+        console.log('[AktiflikKapa] Hic aktif veya son oturum bulunamadi.');
         await interaction.editReply({
           content: '⚠️ Şu anda aktif bir aktiflik kontrolü bulunmuyor.',
         });
         return;
       }
 
+      if (!activeSessions || activeSessions.length === 0) {
+        console.log(`[AktiflikKapa] Aktif oturum bulunamadi, son oturum fallback olarak kullaniliyor: ID=${activeSession.id}, Active=${activeSession.active}`);
+      }
+
       // Force close the newest session
-      const activeSession = activeSessions[activeSessions.length - 1];
       console.log(`[AktiflikKapa] Oturum kapatiliyor: ID=${activeSession.id}, MsgID=${activeSession.message_id}`);
       
       await finalizeAktiflikSession(
@@ -47,7 +53,8 @@ const command: BotCommand = {
         guild,
         activeSession.id,
         activeSession.message_id,
-        activeSession.channel_id
+        activeSession.channel_id,
+        true
       );
 
       await interaction.editReply({
