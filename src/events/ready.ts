@@ -36,6 +36,28 @@ function formatMemberLines(members: GuildMember[], icon: string): string {
   return lines.join('\n');
 }
 
+function formatMemberMentionLines(members: GuildMember[], icon: string): string {
+  if (!members.length) {
+    return 'Yok';
+  }
+
+  const lines: string[] = [];
+  for (const member of members) {
+    const line = `${icon} <@${member.id}>`;
+    const candidate = [...lines, line].join('\n');
+    if (candidate.length > 1000) {
+      break;
+    }
+    lines.push(line);
+  }
+
+  if (members.length > lines.length) {
+    lines.push(`... ve ${members.length - lines.length} kisi daha`);
+  }
+
+  return lines.join('\n');
+}
+
 async function finalizeAktiflikSessionByRow(
   client: BotClient,
   guild: Guild,
@@ -99,9 +121,7 @@ async function finalizeAktiflikSessionByRow(
       },
       {
         name: `❌ Katılmayanlar (${missedMembers.length})`,
-        value: missedMembers.length
-          ? missedMembers.map((member) => `❌ <@${member.id}>`).join('\n')
-          : 'Yok',
+        value: missedMembers.length ? formatMemberMentionLines(missedMembers, '❌') : 'Yok',
         inline: false,
       }
     )
@@ -115,12 +135,21 @@ async function finalizeAktiflikSessionByRow(
     .setDisabled(true);
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
 
-  await message.edit({
-    content: null,
-    embeds: [closedEmbed],
-    components: [row],
-  });
-  await sendAktiflikPanelMessage(client, guild, session.id, missedMembers, joinedMembers, roleMembers.length);
+  try {
+    await message.edit({
+      content: null,
+      embeds: [closedEmbed],
+      components: [row],
+    });
+  } catch (error) {
+    console.error('[Aktiflik] Ready kapanış mesajı güncellenemedi:', error);
+  }
+
+  try {
+    await sendAktiflikPanelMessage(client, guild, session.id, missedMembers, joinedMembers, roleMembers.length);
+  } catch (error) {
+    console.error('[Aktiflik] Ready panel mesajı gönderilemedi:', error);
+  }
 
   try {
     await client.db.addBotLog(
