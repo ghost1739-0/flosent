@@ -14,7 +14,7 @@ import { finalizeAktiflikSession } from '../commands/aktiflik';
 import { buildUpdatedIngameEmbed, syncIngameAnnouncement, getIngameTotalCapacity } from '../utils/ingameAnnouncement';
 
 const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
-const AKTIFLIK_ROLE_ID = '1500135055207567590';
+const AKTIFLIK_ROLE_ID = '1504751366826885230';
 const FARMVER_CHANNEL_ID = '1500452813942030407';
 const AKTIFLIK_PANEL_PERM_ROLE_ID = '1500135055148843147';
 const AKTIFLIK_PERM_CONFIRM_PREFIX = 'aktiflik_permcek_confirm_';
