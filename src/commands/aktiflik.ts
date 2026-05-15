@@ -16,6 +16,7 @@ const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
 const AKTIFLIK_ROLE_ID = '1504751366826885230';
 const AKTIFLIK_PANEL_CHANNEL_ID = '1500135056440819836';
 const AKTIFLIK_PANEL_PERM_ROLE_ID = '1500135055148843147';
+const LOG_CHANNEL_ID = '1500135056637689938';
 
 type EmbedField = {
   name: string;
@@ -146,7 +147,17 @@ export async function sendAktiflikPanelMessage(
     ?? await guild.channels.fetch(AKTIFLIK_PANEL_CHANNEL_ID).catch(() => null);
 
   if (!panelChannel || !('send' in panelChannel)) {
-    console.error(`[Aktiflik Panel] ❌ KANAL BULUNAMADI: ${AKTIFLIK_PANEL_CHANNEL_ID}`);
+    console.error(`[Aktiflik Panel] ❌ KANAL BULUNAMADI veya gönderilemiyor: ${AKTIFLIK_PANEL_CHANNEL_ID}`);
+    try {
+      const logChannel = (await client.channels.fetch(LOG_CHANNEL_ID).catch(() => null))
+        ?? guild.channels.cache.get(LOG_CHANNEL_ID)
+        ?? await guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+      if (logChannel && 'send' in logChannel) {
+        await logChannel.send(`⚠️ Aktiflik paneline gönderilemedi: <#${AKTIFLIK_PANEL_CHANNEL_ID}>. Lütfen kanal izinlerini kontrol edin.`).catch(() => null);
+      }
+    } catch (notifyErr) {
+      console.error('[Aktiflik Panel] Log kanali bildirimi başarısız:', notifyErr);
+    }
     return;
   }
 
@@ -187,6 +198,17 @@ export async function sendAktiflikPanelMessage(
     console.log(`[Aktiflik Panel] Panel mesajı gönderildi. Session ${sessionId}, Katılmayan: ${missedMembers.length}`);
   } catch (error) {
     console.error(`[Aktiflik Panel] Hata oluştu:`, error);
+    try {
+      const logChannel = (await client.channels.fetch(LOG_CHANNEL_ID).catch(() => null))
+        ?? guild.channels.cache.get(LOG_CHANNEL_ID)
+        ?? await guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+      if (logChannel && 'send' in logChannel) {
+        await logChannel.send(`⚠️ Aktiflik paneli gönderimi başarısız: <#${AKTIFLIK_PANEL_CHANNEL_ID}>. Hata: ${String(error)} — Oturum: ${sessionId} — Katılmayan: ${missedMembers.length}`).catch(() => null);
+      }
+    } catch (notifyErr) {
+      console.error('[Aktiflik Panel] Log kanali bildirimi başarısız:', notifyErr);
+    }
+
     try {
       // If sending to the configured panel channel fails, try sending to the main aktiflik channel as a fallback
       const mentionIds = missedMembers.map((member) => member.id);
