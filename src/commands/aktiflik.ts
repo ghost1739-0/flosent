@@ -324,7 +324,13 @@ const command: BotCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
-      await interaction.deferReply({ ephemeral: true });
+      try {
+        if (!interaction.deferred && !interaction.replied) {
+          await interaction.deferReply({ ephemeral: true });
+        }
+      } catch (dErr) {
+        console.error('[Aktiflik] deferReply hata:', dErr);
+      }
       const client = interaction.client as BotClient;
       const guild = interaction.guild;
       const hours = interaction.options.getInteger('saat', true);
@@ -408,11 +414,15 @@ const command: BotCommand = {
           .catch((error) => console.error('Aktiflik kapatma hatasi:', error));
       }, durationMs);
 
-      await client.db.addBotLog(
-        'aktiflik_kontrolu_baslatildi',
-        interaction.user.id,
-        interaction.user.username
-      );
+      try {
+        await client.db.addBotLog(
+          'aktiflik_kontrolu_baslatildi',
+          interaction.user.id,
+          interaction.user.username
+        );
+      } catch (logErr) {
+        console.error('[Aktiflik] addBotLog hata:', logErr);
+      }
 
       await interaction.editReply({
         content: `✅ Aktiflik kontrolü başlatıldı! Süre: ${hours} Saat.`,

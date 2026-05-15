@@ -14,7 +14,13 @@ const command: BotCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
-      await interaction.deferReply({ ephemeral: true });
+      try {
+        if (!interaction.deferred && !interaction.replied) {
+          await interaction.deferReply({ ephemeral: true });
+        }
+      } catch (dErr) {
+        console.error('[AktiflikKapa] deferReply hata:', dErr);
+      }
       const client = interaction.client as BotClient;
       const guild = interaction.guild;
 
@@ -61,11 +67,15 @@ const command: BotCommand = {
         content: '✅ Aktiflik kontrolü başarıyla kapatıldı ve sonuçlar açıklandı.',
       });
 
-      await client.db.addBotLog(
-        'aktiflik_manuel_kapatildi',
-        interaction.user.id,
-        interaction.user.username
-      );
+      try {
+        await client.db.addBotLog(
+          'aktiflik_manuel_kapatildi',
+          interaction.user.id,
+          interaction.user.username
+        );
+      } catch (logErr) {
+        console.error('[AktiflikKapa] addBotLog hata:', logErr);
+      }
 
     } catch (error) {
       // eslint-disable-next-line no-console
