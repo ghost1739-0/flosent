@@ -116,11 +116,17 @@ async function finalizeAktiflikSessionByRow(
   await message.edit({ embeds: [closedEmbed], components: [row] });
   await sendAktiflikPanelMessage(client, guild, session.id, missedMembers, joinedMembers, roleMembers.length);
 
-  await client.db.addBotLog(
-    'aktiflik_otomatik_kapandi',
-    'SYSTEM',
-    'Otomatik Kapatma'
-  );
+  try {
+    await client.db.addBotLog(
+      'aktiflik_otomatik_kapandi',
+      'SYSTEM',
+      'SYSTEM',
+      `Oturum ${session.id} otomatik kapatıldı. Katılmayan: ${missedMembers.length}`
+    );
+    console.log(`[Aktiflik] Log yazıldı. Session: ${session.id}`);
+  } catch (error) {
+    console.error(`[Aktiflik] Log yazma hatası:`, error);
+  }
 }
 
 async function recoverAndScheduleAktiflikSessions(client: BotClient): Promise<void> {

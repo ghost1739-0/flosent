@@ -79,12 +79,21 @@ export async function sendAktiflikPanelMessage(
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(permButton);
 
-  await panelChannel.send({
-    content: missedMembers.length ? missedMembers.map((member) => `<@${member.id}>`).join(' ') : 'Katılmayan yok.',
-    embeds: [panelEmbed],
-    components: [row],
-    allowedMentions: { parse: ['users'], users: missedMembers.map((member) => member.id) },
-  });
+  try {
+    const mentionIds = missedMembers.map((member) => member.id);
+    console.log(`[Aktiflik Panel] Mention IDs: ${mentionIds.join(', ')}`);
+    
+    await panelChannel.send({
+      content: missedMembers.length ? missedMembers.map((member) => `<@${member.id}>`).join(' ') : 'Katılmayan yok.',
+      embeds: [panelEmbed],
+      components: [row],
+      allowedMentions: { parse: ['users'], users: mentionIds },
+    });
+    
+    console.log(`[Aktiflik Panel] Panel mesajı gönderildi. Session ${sessionId}, Katılmayan: ${missedMembers.length}`);
+  } catch (error) {
+    console.error(`[Aktiflik Panel] Hata oluştu:`, error);
+  }
 }
 
 export const finalizeAktiflikSession = async (
