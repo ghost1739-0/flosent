@@ -175,7 +175,7 @@ const command: BotCommand = {
         .setName('saat')
         .setDescription('Kaç saat aktiflik açık kalsın?')
         .setMinValue(1)
-        .setMaxValue(24)
+        .setMaxValue(96)
         .setRequired(true)
     )
     .setDefaultMemberPermissions(8), // Administrator
