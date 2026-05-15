@@ -12,7 +12,7 @@ import type { BotCommand, BotClient } from '../types';
 import { turkishDate } from '../utils/helpers';
 
 const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
-const AKTIFLIK_ROLE_ID = '1504751366826885230';
+const AKTIFLIK_ROLE_ID = '1500135055207567590';
 const AKTIFLIK_PANEL_CHANNEL_ID = '1500135056440819836';
 const AKTIFLIK_PANEL_PERM_ROLE_ID = '1500135055148843147';
 
