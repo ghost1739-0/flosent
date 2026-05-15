@@ -4,12 +4,21 @@ import { finalizeAktiflikSession } from '../commands/aktiflik';
 import { buildUpdatedIngameEmbed, syncIngameAnnouncement, getIngameTotalCapacity } from '../utils/ingameAnnouncement';
 
 const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
+const AKTIFLIK_ROLE_ID = '1504751366826885230';
 const FARMVER_CHANNEL_ID = '1500452813942030407';
 const AKTIFLIK_PANEL_PERM_ROLE_ID = '1500135055148843147';
 
 const turkishDate = (date: Date = new Date()) => {
   return date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
 };
+
+function extractMentionedUserIds(text: string): Set<string> {
+  const ids = new Set<string>();
+  for (const match of text.matchAll(/<@!?(\d+)>/g)) {
+    ids.add(match[1]);
+  }
+  return ids;
+}
 
 export async function execute(interaction: Interaction): Promise<void> {
   const client = interaction.client as BotClient;
@@ -244,11 +253,6 @@ export async function execute(interaction: Interaction): Promise<void> {
           const sessionId = parseInt(customId.replace('aktiflik_permcek_', ''), 10);
           const session = await client.db.getAktiflikSessionById(sessionId);
 
-          if (!session) {
-            await interaction.editReply({ content: '❌ Oturum bulunamadı.' });
-            return;
-          }
-
           const guild = interaction.guild;
           if (!guild) {
             await interaction.editReply({ content: '❌ Bu işlem sadece sunucuda yapılabilir.' });
@@ -256,11 +260,28 @@ export async function execute(interaction: Interaction): Promise<void> {
           }
 
           await guild.members.fetch().catch(() => null);
-          const role = guild.roles.cache.get(session.target_role_id);
+          const roleId = session?.target_role_id ?? AKTIFLIK_ROLE_ID;
+          const role = guild.roles.cache.get(roleId);
           const roleMembers = role ? Array.from(role.members.values()) : [];
-          const participants = await client.db.getAktiflikSessionParticipants(sessionId);
+          const panelMentionIds = extractMentionedUserIds(interaction.message.content);
+          const participants = session ? await client.db.getAktiflikSessionParticipants(sessionId) : [];
           const joinedIds = new Set(participants.map((participant) => participant.id));
-          const missedMembers = roleMembers.filter((member) => !joinedIds.has(member.id) && !member.user.bot);
+          const missedMembers = roleMembers.filter((member) => {
+            if (member.user.bot) {
+              return false;
+            }
+
+            if (session) {
+              return !joinedIds.has(member.id);
+            }
+
+            return panelMentionIds.has(member.id);
+          });
+
+          if (!missedMembers.length) {
+            await interaction.editReply({ content: '❌ Oturum bulunamadı veya perm çekilecek kişi kalmadı.' });
+            return;
+          }
 
           for (const member of missedMembers) {
             try {
