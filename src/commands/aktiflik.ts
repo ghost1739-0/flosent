@@ -17,6 +17,12 @@ const AKTIFLIK_ROLE_ID = '1500135055207567590';
 const AKTIFLIK_PANEL_CHANNEL_ID = '1500135056440819836';
 const AKTIFLIK_PANEL_PERM_ROLE_ID = '1500135055148843147';
 
+type EmbedField = {
+  name: string;
+  value: string;
+  inline?: boolean;
+};
+
 function formatMemberLines(members: GuildMember[], icon: string): string {
   if (!members.length) {
     return 'Yok';
@@ -62,6 +68,50 @@ function formatMemberMentionLines(members: GuildMember[], icon: string): string 
   return lines.join('\n');
 }
 
+export function buildMentionFields(members: GuildMember[], baseName: string, icon: string): EmbedField[] {
+  if (!members.length) {
+    return [
+      {
+        name: baseName,
+        value: 'Yok',
+        inline: false,
+      },
+    ];
+  }
+
+  const fields: EmbedField[] = [];
+  let currentLines: string[] = [];
+  let currentLength = 0;
+
+  for (const member of members) {
+    const line = `${icon} <@${member.id}>`;
+    const lineLength = line.length + 1;
+
+    if (currentLines.length > 0 && currentLength + lineLength > 900) {
+      fields.push({
+        name: fields.length === 0 ? baseName : `${baseName} (devam ${fields.length + 1})`,
+        value: currentLines.join('\n'),
+        inline: false,
+      });
+      currentLines = [];
+      currentLength = 0;
+    }
+
+    currentLines.push(line);
+    currentLength += lineLength;
+  }
+
+  if (currentLines.length > 0) {
+    fields.push({
+      name: fields.length === 0 ? baseName : `${baseName} (devam ${fields.length + 1})`,
+      value: currentLines.join('\n'),
+      inline: false,
+    });
+  }
+
+  return fields;
+}
+
 function buildAktiflikPanelEmbed(
   sessionId: number,
   missedMembers: GuildMember[],
@@ -78,11 +128,7 @@ function buildAktiflikPanelEmbed(
         value: `Toplam: **${roleMembersCount}**\nKatılan: **${joinedMembers.length}**\nKatılmayan: **${missedMembers.length}**`,
         inline: false,
       },
-      {
-        name: `❌ Katılmayanlar (${missedMembers.length})`,
-        value: formatMemberMentionLines(missedMembers, '❌'),
-        inline: false,
-      }
+      ...buildMentionFields(missedMembers, `❌ Katılmayanlar (${missedMembers.length})`, '❌')
     )
     .setFooter({ text: `Oturum: ${sessionId}` });
 }

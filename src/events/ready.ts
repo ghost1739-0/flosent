@@ -8,7 +8,7 @@ import {
   GuildMember,
 } from 'discord.js';
 import type { BotClient, BotEvent } from '../types';
-import { sendAktiflikPanelMessage } from '../commands/aktiflik';
+import { buildMentionFields, sendAktiflikPanelMessage } from '../commands/aktiflik';
 
 const turkishDate = (date: Date = new Date()) => {
   return date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
@@ -119,11 +119,7 @@ async function finalizeAktiflikSessionByRow(
         value: `Toplam: **${roleMembers.length}**\nKatılan: **${joinedMembers.length}**\nKatılmayan: **${missedMembers.length}**`,
         inline: false,
       },
-      {
-        name: `❌ Katılmayanlar (${missedMembers.length})`,
-        value: missedMembers.length ? formatMemberMentionLines(missedMembers, '❌') : 'Yok',
-        inline: false,
-      }
+      ...buildMentionFields(missedMembers, `❌ Katılmayanlar (${missedMembers.length})`, '❌')
     )
     .setColor('DarkGreen')
     .setFooter({ text: `Bitiş: ${turkishDate()}` });
