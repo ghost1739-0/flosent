@@ -8,6 +8,7 @@ import {
 import type { BotCommand } from '../types';
 
 const TARGET_VOICE_CHANNEL_ID = '1500135057078223027';
+const TARGET_ROLE_ID = '1500135055207567590';
 
 const command: BotCommand = {
   data: new SlashCommandBuilder()
@@ -34,6 +35,12 @@ const command: BotCommand = {
       // Ensure cache of members is up-to-date
       await guild.members.fetch().catch(() => null);
 
+      const targetRole = guild.roles.cache.get(TARGET_ROLE_ID);
+      if (!targetRole) {
+        await interaction.editReply({ content: '❌ Hedef rol bulunamadı.' });
+        return;
+      }
+
       const me = guild.members.me;
       if (!me) {
         await interaction.editReply({ content: '❌ Botun sunucu üyesi bilgisi alınamadı.' });
@@ -46,26 +53,19 @@ const command: BotCommand = {
       }
 
       let movedCount = 0;
-      const voiceChannels = guild.channels.cache.filter(
-        (channel): channel is VoiceChannel | StageChannel => channel instanceof VoiceChannel || channel instanceof StageChannel
-      );
+      const eligibleMembers = targetRole.members.filter((member) => !member.user.bot);
 
-      for (const voiceChannel of voiceChannels.values()) {
-        if (voiceChannel.id === TARGET_VOICE_CHANNEL_ID) {
+      for (const member of eligibleMembers.values()) {
+        const voiceChannelId = member.voice.channelId;
+        if (!voiceChannelId || voiceChannelId === TARGET_VOICE_CHANNEL_ID) {
           continue;
         }
 
-        for (const member of voiceChannel.members.values()) {
-          if (member.user.bot) {
-            continue;
-          }
-
-          try {
-            await member.voice.setChannel(targetChannel.id);
-            movedCount++;
-          } catch (err) {
-            console.error(`Üye taşıma hatası (${member.displayName}):`, err);
-          }
+        try {
+          await member.voice.setChannel(targetChannel.id);
+          movedCount++;
+        } catch (err) {
+          console.error(`Üye taşıma hatası (${member.displayName}):`, err);
         }
       }
 
