@@ -9,6 +9,10 @@ import type { BotCommand } from '../types';
 
 const TARGET_VOICE_CHANNEL_ID = '1500135057078223027';
 const TARGET_ROLE_ID = '1500135055207567590';
+const SOURCE_VOICE_CHANNEL_IDS = [
+  '1500867578669695066',
+  '1500869221930893583',
+];
 
 const command: BotCommand = {
   data: new SlashCommandBuilder()
@@ -53,7 +57,28 @@ const command: BotCommand = {
       }
 
       let movedCount = 0;
-      const eligibleMembers = targetRole.members.filter((member) => !member.user.bot);
+      const eligibleMembers = new Map<string, typeof targetRole.members extends Map<string, infer T> ? T : never>();
+
+      for (const member of targetRole.members.values()) {
+        if (!member.user.bot) {
+          eligibleMembers.set(member.id, member);
+        }
+      }
+
+      for (const sourceChannelId of SOURCE_VOICE_CHANNEL_IDS) {
+        const sourceChannel = guild.channels.cache.get(sourceChannelId);
+        if (!sourceChannel || !(sourceChannel instanceof VoiceChannel || sourceChannel instanceof StageChannel)) {
+          continue;
+        }
+
+        for (const member of sourceChannel.members.values()) {
+          if (member.user.bot || !member.roles.cache.has(TARGET_ROLE_ID)) {
+            continue;
+          }
+
+          eligibleMembers.set(member.id, member);
+        }
+      }
 
       for (const member of eligibleMembers.values()) {
         const voiceChannelId = member.voice.channelId;
