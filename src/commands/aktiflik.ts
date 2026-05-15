@@ -386,19 +386,19 @@ const command: BotCommand = {
         return;
       }
 
-      // Check if user has the required role for aktiflik
+      // Only administrators can use this command (enforced by slash command permissions)
       const member = interaction.member;
-      if (!member || !('roles' in member)) {
+      if (!member || !('permissions' in member)) {
         await interaction.editReply({
           content: '❌ Üye bilgileri alınamadı.',
         });
         return;
       }
-
-      if (!(member.roles as any).cache.has(AKTIFLIK_ROLE_ID)) {
-        await interaction.editReply({
-          content: '❌ Bu komutu kullanmak için gerekli role sahip değilsiniz. Sadece <@&' + AKTIFLIK_ROLE_ID + '> sahip üyeler bu komutu çalıştırabilir.',
-        });
+      // Extra runtime check: ensure user has Administrator permission
+      // This protects in case command permissions are not enforced at registration
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (!(member as any).permissions?.has?.(PermissionFlagsBits.Administrator)) {
+        await interaction.editReply({ content: '❌ Bu komutu kullanmak için Yönetici (Administrator) yetkisine sahip olmanız gerekiyor.' });
         return;
       }
 
