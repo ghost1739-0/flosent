@@ -370,7 +370,12 @@ const command: BotCommand = {
       }
       const client = interaction.client as BotClient;
       const guild = interaction.guild;
-      const seconds = interaction.options.getInteger('saniye', true);
+      const secondsOption = interaction.options.getInteger('saniye') ?? interaction.options.getInteger('saat');
+      if (secondsOption == null) {
+        await interaction.editReply({ content: '❌ Lütfen süre seçeneğini girin (saniye veya saat).' });
+        return;
+      }
+      const seconds = secondsOption;
       const durationMs = seconds * 1000;
 
       if (!guild) {
