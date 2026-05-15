@@ -55,13 +55,18 @@ export async function execute(interaction: Interaction): Promise<void> {
           const sessionId = Number(parts[2]);
           const session = await client.db.getAktiflikSessionByMessageId(interaction.message.id);
 
-          if (!session || session.active !== 1 || session.id !== sessionId) {
+          if (!session || session.id !== sessionId) {
             await interaction.followUp({ content: '⚠️ Bu aktiflik oturumu kapandi.', ephemeral: true });
             return;
           }
 
           if (new Date(session.ends_at).getTime() <= Date.now()) {
             await interaction.followUp({ content: '⚠️ Bu aktiflik oturumu suresi doldu.', ephemeral: true });
+            return;
+          }
+
+          if (session.active !== 1) {
+            await interaction.followUp({ content: '⚠️ Bu aktiflik oturumu kapandi.', ephemeral: true });
             return;
           }
 

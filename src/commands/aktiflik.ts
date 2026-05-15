@@ -13,10 +13,6 @@ import { turkishDate } from '../utils/helpers';
 
 const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
 const AKTIFLIK_ROLE_ID = '1500135055207567590';
-const AKTIFLIK_PENALTY_CHANNEL_ID = '1500545923816624259';
-const PENALTY_ROLE_1 = '1500509508051402923';
-const PENALTY_ROLE_2 = '1500496724152553614';
-const PENALTY_ROLE_3 = '1500496699171405895';
 
 function formatMemberLines(members: GuildMember[], icon: string): string {
   if (!members.length) {
@@ -38,77 +34,6 @@ function formatMemberLines(members: GuildMember[], icon: string): string {
   }
 
   return lines.join('\n');
-}
-
-async function applyPenaltyForMissedMember(
-  member: GuildMember,
-  client: BotClient,
-  guild: Guild,
-  reasonChannelId: string
-): Promise<void> {
-  const status = await client.db.incrementAktiflikMiss(member.id, member.displayName);
-
-  const role1 = guild.roles.cache.get(PENALTY_ROLE_1);
-  const role2 = guild.roles.cache.get(PENALTY_ROLE_2);
-  const role3 = guild.roles.cache.get(PENALTY_ROLE_3);
-
-  try {
-    if (status.consecutive_misses === 1) {
-      if (role2 && member.roles.cache.has(role2.id)) {
-        await member.roles.remove(role2);
-      }
-      if (role3 && member.roles.cache.has(role3.id)) {
-        await member.roles.remove(role3);
-      }
-      if (role1 && !member.roles.cache.has(role1.id)) {
-        await member.roles.add(role1);
-      }
-    } else if (status.consecutive_misses === 2) {
-      if (role1 && member.roles.cache.has(role1.id)) {
-        await member.roles.remove(role1);
-      }
-      if (role3 && member.roles.cache.has(role3.id)) {
-        await member.roles.remove(role3);
-      }
-      if (role2 && !member.roles.cache.has(role2.id)) {
-        await member.roles.add(role2);
-      }
-    } else if (status.consecutive_misses >= 3) {
-      if (role1 && member.roles.cache.has(role1.id)) {
-        await member.roles.remove(role1);
-      }
-      if (role2 && member.roles.cache.has(role2.id)) {
-        await member.roles.remove(role2);
-      }
-      if (role3 && !member.roles.cache.has(role3.id)) {
-        await member.roles.add(role3);
-      }
-    }
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Aktiflik rol uygulama hatasi:', error);
-  }
-
-  const penaltyChannel = guild.channels.cache.get(reasonChannelId) ?? await guild.channels.fetch(reasonChannelId).catch(() => null);
-  if (penaltyChannel && 'send' in penaltyChannel) {
-    let roleText = 'ceza rolu guncellenemedi';
-    if (status.consecutive_misses === 1) {
-      roleText = `<@&${PENALTY_ROLE_1}>`;
-    } else if (status.consecutive_misses === 2) {
-      roleText = `<@&${PENALTY_ROLE_2}>`;
-    } else if (status.consecutive_misses >= 3) {
-      roleText = `<@&${PENALTY_ROLE_3}>`;
-    }
-
-    try {
-      await penaltyChannel.send({
-        content: `<@${member.id}> aktiflik tiklememe nedeniyle ${roleText} rolunu aldi. (ust uste: ${status.consecutive_misses})`,
-        allowedMentions: { users: [member.id] },
-      });
-    } catch (sendErr) {
-      console.error('Uyari kanali mesaj gönderme hatasi:', sendErr);
-    }
-  }
 }
 
 export const finalizeAktiflikSession = async (
@@ -161,14 +86,6 @@ export const finalizeAktiflikSession = async (
     await client.db.markAktiflikJoined(member.id, member.displayName);
   }
 
-  for (const member of missedMembers) {
-    console.log(`[Aktiflik] Ceza uygulaniyor: ${member.displayName} (${member.id})`);
-    // ensure we await penalty to handle them one by one
-    await applyPenaltyForMissedMember(member, client, guild, AKTIFLIK_PENALTY_CHANNEL_ID).catch(err => {
-      console.error(`[Aktiflik] Ceza uygulama hatasi (${member.displayName}):`, err);
-    });
-  }
-
   const currentEmbed = message.embeds[0];
   const closedEmbed = (currentEmbed ? EmbedBuilder.from(currentEmbed) : new EmbedBuilder())
     .setTitle('✅ Aktiflik Kontrolü Sonuçları')
@@ -178,11 +95,6 @@ export const finalizeAktiflikSession = async (
         name: '📊 Katılım Özeti',
         value: `Toplam: **${roleMembers.length}**\nKatılan: **${joinedMembers.length}**\nKatılmayan: **${missedMembers.length}**`,
         inline: false,
-      },
-      {
-        name: `✅ Katılanlar (${joinedMembers.length})`,
-        value: formatMemberLines(joinedMembers, '✅'),
-        inline: true,
       },
       {
         name: `❌ Katılmayanlar (${missedMembers.length})`,

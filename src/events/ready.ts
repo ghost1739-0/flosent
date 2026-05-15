@@ -9,11 +9,6 @@ import {
 } from 'discord.js';
 import type { BotClient, BotEvent } from '../types';
 
-const AKTIFLIK_PENALTY_CHANNEL_ID = '1500135056847409172';
-const PENALTY_ROLE_1 = '1500496578052362280';
-const PENALTY_ROLE_2 = '1500496724152553614';
-const PENALTY_ROLE_3 = '1500496699171405895';
-
 const turkishDate = (date: Date = new Date()) => {
   return date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
 };
@@ -38,51 +33,6 @@ function formatMemberLines(members: GuildMember[], icon: string): string {
   }
 
   return lines.join('\n');
-}
-
-async function applyPenaltyForMissedMember(
-  member: GuildMember,
-  client: BotClient,
-  guild: Guild
-): Promise<void> {
-  const status = await client.db.incrementAktiflikMiss(member.id, member.displayName);
-
-  const role1 = guild.roles.cache.get(PENALTY_ROLE_1);
-  const role2 = guild.roles.cache.get(PENALTY_ROLE_2);
-  const role3 = guild.roles.cache.get(PENALTY_ROLE_3);
-
-  try {
-    if (status.consecutive_misses === 1) {
-      if (role2 && member.roles.cache.has(role2.id)) await member.roles.remove(role2);
-      if (role3 && member.roles.cache.has(role3.id)) await member.roles.remove(role3);
-      if (role1 && !member.roles.cache.has(role1.id)) await member.roles.add(role1);
-    } else if (status.consecutive_misses === 2) {
-      if (role1 && member.roles.cache.has(role1.id)) await member.roles.remove(role1);
-      if (role3 && member.roles.cache.has(role3.id)) await member.roles.remove(role3);
-      if (role2 && !member.roles.cache.has(role2.id)) await member.roles.add(role2);
-    } else if (status.consecutive_misses >= 3) {
-      if (role1 && member.roles.cache.has(role1.id)) await member.roles.remove(role1);
-      if (role2 && member.roles.cache.has(role2.id)) await member.roles.remove(role2);
-      if (role3 && !member.roles.cache.has(role3.id)) await member.roles.add(role3);
-    }
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Aktiflik rol uygulama hatasi:', error);
-  }
-
-  const penaltyChannel = guild.channels.cache.get(AKTIFLIK_PENALTY_CHANNEL_ID)
-    ?? await guild.channels.fetch(AKTIFLIK_PENALTY_CHANNEL_ID).catch(() => null);
-  if (penaltyChannel && 'send' in penaltyChannel) {
-    let roleText = 'ceza rolu guncellenemedi';
-    if (status.consecutive_misses === 1) roleText = `<@&${PENALTY_ROLE_1}>`;
-    else if (status.consecutive_misses === 2) roleText = `<@&${PENALTY_ROLE_2}>`;
-    else if (status.consecutive_misses >= 3) roleText = `<@&${PENALTY_ROLE_3}>`;
-
-    await penaltyChannel.send({
-      content: `${member} aktiflik tiklememe nedeniyle ${roleText} rolunu aldi. (ust uste: ${status.consecutive_misses})`,
-      allowedMentions: { parse: [] },
-    });
-  }
 }
 
 async function finalizeAktiflikSessionByRow(
@@ -119,21 +69,21 @@ async function finalizeAktiflikSessionByRow(
     return;
   }
 
-  await guild.members.fetch();
+  await guild.members.fetch().catch((error) => {
+    // eslint-disable-next-line no-console
+    console.error('[Aktiflik] Member fetch hatasi:', error);
+  });
+
   const role = guild.roles.cache.get(session.target_role_id);
   const roleMembers = role ? Array.from(role.members.values()) : [];
 
   const participants = await client.db.getAktiflikSessionParticipants(session.id);
-  const joinedIds = new Set(participants.map((p) => p.id));
-  const joinedMembers = roleMembers.filter((m) => joinedIds.has(m.id));
-  const missedMembers = roleMembers.filter((m) => !joinedIds.has(m.id));
+  const joinedIds = new Set(participants.map((participant) => participant.id));
+  const joinedMembers = roleMembers.filter((member) => joinedIds.has(member.id));
+  const missedMembers = roleMembers.filter((member) => !joinedIds.has(member.id));
 
   for (const member of joinedMembers) {
     await client.db.markAktiflikJoined(member.id, member.displayName);
-  }
-
-  for (const member of missedMembers) {
-    await applyPenaltyForMissedMember(member, client, guild);
   }
 
   const currentEmbed = message.embeds[0];
@@ -142,23 +92,18 @@ async function finalizeAktiflikSessionByRow(
     .setDescription('Sure doldu, aktiflik onaylama kapatildi.')
     .setFields(
       {
-        name: '📊 Katilim',
-        value: `${joinedMembers.length}/${roleMembers.length}`,
+        name: '📊 Katilim Ozeti',
+        value: `Toplam: **${roleMembers.length}**\nKatılan: **${joinedMembers.length}**\nKatılmayan: **${missedMembers.length}**`,
         inline: false,
       },
       {
-        name: `✅ Katilanlar (${joinedMembers.length})`,
-        value: formatMemberLines(joinedMembers, '✅'),
-        inline: false,
-      },
-      {
-        name: `❌ Katilmayanlar (${missedMembers.length})`,
+        name: `❌ Katılmayanlar (${missedMembers.length})`,
         value: formatMemberLines(missedMembers, '❌'),
         inline: false,
       }
     )
-    .setColor('Red')
-    .setFooter({ text: `Kapatildi — ${turkishDate()}` });
+    .setColor('DarkGreen')
+    .setFooter({ text: `Bitiş: ${turkishDate()}` });
 
   const disabledButton = new ButtonBuilder()
     .setCustomId(`aktiflik_kapali_${session.id}`)
