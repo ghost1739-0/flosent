@@ -175,33 +175,14 @@ export async function sendAktiflikPanelMessage(
 
   try {
     const mentionIds = missedMembers.map((member) => member.id);
-    console.log(`[Aktiflik Panel] Mention IDs: ${mentionIds.join(', ')}`);
-
-    // Send a short-lived mention message so users are actually pinged,
-    // then send the embed panel and remove the plain mention message.
-    let mentionMessage: any = null;
-    if (mentionIds.length > 0) {
-      try {
-        mentionMessage = await panelChannel.send({
-          content: mentionIds.map((id) => `<@${id}>`).join(' '),
-          allowedMentions: { parse: ['users'], users: mentionIds },
-        });
-      } catch (mErr) {
-        console.error('[Aktiflik Panel] Mention mesajı gönderilemedi:', mErr);
-      }
-    }
+    const missedListContent = `❌ Katılmayanlar (${missedMembers.length})\n${formatMemberMentionLines(missedMembers, '❌')}`;
 
     await panelChannel.send({
+      content: missedListContent,
       embeds: [panelEmbed],
+      allowedMentions: { parse: ['users'], users: mentionIds },
       components: [row],
     });
-
-    // delete the mention-only message after a short delay to avoid visible plain text
-    if (mentionMessage) {
-      setTimeout(() => {
-        mentionMessage.delete().catch(() => null);
-      }, 2500);
-    }
 
     console.log(`[Aktiflik Panel] Panel mesajı gönderildi. Session ${sessionId}, Katılmayan: ${missedMembers.length}`);
   } catch (error) {
@@ -210,8 +191,10 @@ export async function sendAktiflikPanelMessage(
     try {
       const mentionIds = missedMembers.map((member) => member.id);
       const panelEmbedFallback = buildAktiflikPanelEmbed(sessionId, missedMembers, joinedMembers, roleMembersCount);
+      const missedListContent = `❌ Katılmayanlar (${missedMembers.length})\n${formatMemberMentionLines(missedMembers, '❌')}`;
 
       await panelChannel.send({
+        content: missedListContent,
         embeds: [panelEmbedFallback],
         components: [row],
         allowedMentions: { parse: ['users'], users: mentionIds },
