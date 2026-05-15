@@ -182,8 +182,10 @@ export const finalizeAktiflikSession = async (
       },
       {
         name: `❌ Katılmayanlar (${missedMembers.length})`,
-        value: formatMemberLines(missedMembers, '❌'),
-        inline: true,
+        value: missedMembers.length
+          ? missedMembers.map((member) => `❌ <@${member.id}>`).join('\n')
+          : 'Yok',
+        inline: false,
       }
     )
     .setColor('DarkGreen')
