@@ -7,6 +7,8 @@ const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
 const AKTIFLIK_ROLE_ID = '1500135055207567590';
 const FARMVER_CHANNEL_ID = '1500452813942030407';
 const AKTIFLIK_PANEL_PERM_ROLE_ID = '1500135055148843147';
+const AKTIFLIK_PERM_CONFIRM_PREFIX = 'aktiflik_permcek_confirm_';
+const AKTIFLIK_PERM_CANCEL_PREFIX = 'aktiflik_permcek_cancel_';
 
 const turkishDate = (date: Date = new Date()) => {
   return date.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
@@ -18,6 +20,23 @@ function extractMentionedUserIds(text: string): Set<string> {
     ids.add(match[1]);
   }
   return ids;
+}
+
+function buildAktiflikPermConfirmCustomId(sessionId: number, channelId: string, messageId: string): string {
+  return `aktiflik_permcek_confirm_${sessionId}_${channelId}_${messageId}`;
+}
+
+function parseAktiflikPermConfirmCustomId(customId: string): { sessionId: number; channelId: string; messageId: string } | null {
+  const match = customId.match(/^aktiflik_permcek_confirm_(\d+)_([0-9]+)_([0-9]+)$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    sessionId: Number(match[1]),
+    channelId: match[2],
+    messageId: match[3],
+  };
 }
 
 export async function execute(interaction: Interaction): Promise<void> {
@@ -247,10 +266,22 @@ export async function execute(interaction: Interaction): Promise<void> {
         return;
       }
 
-      if (customId.startsWith('aktiflik_permcek_')) {
+      if (customId.startsWith(AKTIFLIK_PERM_CANCEL_PREFIX)) {
+        await interaction.deferReply({ ephemeral: true });
+        await interaction.editReply({ content: 'İşlem iptal edildi.' });
+        return;
+      }
+
+      if (customId.startsWith(AKTIFLIK_PERM_CONFIRM_PREFIX)) {
         try {
           await interaction.deferReply({ ephemeral: true });
-          const sessionId = parseInt(customId.replace('aktiflik_permcek_', ''), 10);
+          const parsed = parseAktiflikPermConfirmCustomId(customId);
+          if (!parsed) {
+            await interaction.editReply({ content: '❌ Geçersiz onay butonu.' });
+            return;
+          }
+
+          const { sessionId, channelId, messageId } = parsed;
           const session = await client.db.getAktiflikSessionById(sessionId);
 
           const guild = interaction.guild;
@@ -263,7 +294,13 @@ export async function execute(interaction: Interaction): Promise<void> {
           const roleId = session?.target_role_id ?? AKTIFLIK_ROLE_ID;
           const role = guild.roles.cache.get(roleId);
           const roleMembers = role ? Array.from(role.members.values()) : [];
-          const panelMentionIds = extractMentionedUserIds(interaction.message.content);
+          const panelChannel = guild.channels.cache.get(channelId)
+            ?? await guild.channels.fetch(channelId).catch(() => null);
+          const panelMessage = panelChannel && 'messages' in panelChannel
+            ? await panelChannel.messages.fetch(messageId).catch(() => null)
+            : null;
+
+          const panelMentionIds = extractMentionedUserIds(panelMessage?.content ?? '');
           const participants = session ? await client.db.getAktiflikSessionParticipants(sessionId) : [];
           const joinedIds = new Set(participants.map((participant) => participant.id));
           const missedMembers = roleMembers.filter((member) => {
@@ -292,8 +329,7 @@ export async function execute(interaction: Interaction): Promise<void> {
             }
           }
 
-          const message = interaction.message;
-          const currentEmbed = message.embeds[0];
+          const currentEmbed = panelMessage?.embeds[0];
           if (currentEmbed) {
             const updatedEmbed = EmbedBuilder.from(currentEmbed).addFields({
               name: '✅ Perm Durumu',
@@ -308,7 +344,7 @@ export async function execute(interaction: Interaction): Promise<void> {
               .setDisabled(true);
 
             const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
-            await message.edit({ embeds: [updatedEmbed], components: [row] });
+            await panelMessage?.edit({ embeds: [updatedEmbed], components: [row] });
           }
 
           await interaction.editReply({
@@ -317,6 +353,46 @@ export async function execute(interaction: Interaction): Promise<void> {
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('Aktiflik perm çekme button hatası:', error);
+          await interaction.editReply({
+            content: '❌ Bir hata oluştu.',
+          });
+        }
+        return;
+      }
+
+      if (customId.startsWith('aktiflik_permcek_')) {
+        try {
+          await interaction.deferReply({ ephemeral: true });
+          const sessionId = parseInt(customId.replace('aktiflik_permcek_', ''), 10);
+          const session = await client.db.getAktiflikSessionById(sessionId);
+
+          if (!session) {
+            await interaction.editReply({ content: '❌ Oturum bulunamadı.' });
+            return;
+          }
+
+          const confirmCustomId = buildAktiflikPermConfirmCustomId(sessionId, interaction.message.channelId, interaction.message.id);
+          const cancelCustomId = `aktiflik_permcek_cancel_${sessionId}`;
+
+          const yesButton = new ButtonBuilder()
+            .setCustomId(confirmCustomId)
+            .setLabel('Evet')
+            .setStyle(ButtonStyle.Danger);
+
+          const noButton = new ButtonBuilder()
+            .setCustomId(cancelCustomId)
+            .setLabel('Hayır')
+            .setStyle(ButtonStyle.Secondary);
+
+          const row = new ActionRowBuilder<ButtonBuilder>().addComponents(yesButton, noButton);
+
+          await interaction.editReply({
+            content: 'Emin misin? Bu işlem katılmayan üyelerin rollerini değiştirecek.',
+            components: [row],
+          });
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error('Aktiflik perm onay button hatası:', error);
           await interaction.editReply({
             content: '❌ Bir hata oluştu.',
           });
