@@ -7,6 +7,7 @@ import {
   ButtonStyle,
   Guild,
   GuildMember,
+  PermissionFlagsBits,
 } from 'discord.js';
 import type { BotCommand, BotClient } from '../types';
 import { turkishDate } from '../utils/helpers';
@@ -97,6 +98,20 @@ export async function sendAktiflikPanelMessage(
     return;
   }
 
+  const botMember = guild.members.me ?? await guild.members.fetchMe().catch(() => null);
+  if (botMember && 'permissionsFor' in panelChannel) {
+    const permissions = panelChannel.permissionsFor(botMember);
+    if (!permissions?.has(PermissionFlagsBits.ViewChannel)) {
+      console.error(`[Aktiflik Panel] ❌ View Channel izni yok: ${AKTIFLIK_PANEL_CHANNEL_ID}`);
+    }
+    if (!permissions?.has(PermissionFlagsBits.SendMessages)) {
+      console.error(`[Aktiflik Panel] ❌ Send Messages izni yok: ${AKTIFLIK_PANEL_CHANNEL_ID}`);
+    }
+    if (!permissions?.has(PermissionFlagsBits.EmbedLinks)) {
+      console.error(`[Aktiflik Panel] ⚠️ Embed Links izni yok: ${AKTIFLIK_PANEL_CHANNEL_ID}`);
+    }
+  }
+
   const panelEmbed = new EmbedBuilder()
     .setTitle('✅ Aktiflik Kapatildi - Perm Paneli')
     .setDescription('Katılmayanlardan perm çekmek için aşağıdaki butona bas.')
@@ -155,6 +170,18 @@ export async function sendAktiflikPanelMessage(
       console.log(`[Aktiflik Panel] Embed olmadan panel mesajı gönderildi. Session ${sessionId}`);
     } catch (fallbackError) {
       console.error(`[Aktiflik Panel] Text fallback da başarısız oldu:`, fallbackError);
+
+      try {
+        const summaryContent = buildAktiflikPanelSummary(sessionId, missedMembers, joinedMembers, roleMembersCount);
+
+        await panelChannel.send({
+          content: summaryContent,
+        });
+
+        console.log(`[Aktiflik Panel] Son fallback ile düz metin gönderildi. Session ${sessionId}`);
+      } catch (finalError) {
+        console.error(`[Aktiflik Panel] Son fallback da başarısız oldu:`, finalError);
+      }
     }
   }
 }
