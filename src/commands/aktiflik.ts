@@ -61,6 +61,25 @@ function formatMemberMentionLines(members: GuildMember[], icon: string): string 
   return lines.join('\n');
 }
 
+function buildAktiflikPanelSummary(
+  sessionId: number,
+  missedMembers: GuildMember[],
+  joinedMembers: GuildMember[],
+  roleMembersCount: number
+): string {
+  const lines = [
+    `✅ Aktiflik kapandı. Oturum: ${sessionId}`,
+    `Toplam: ${roleMembersCount} | Katılan: ${joinedMembers.length} | Katılmayan: ${missedMembers.length}`,
+  ];
+
+  if (missedMembers.length) {
+    const mentions = missedMembers.map((member) => `<@${member.id}>`).join(' ');
+    lines.push(`Katılmayanlar: ${mentions}`);
+  }
+
+  return lines.join('\n');
+}
+
 export async function sendAktiflikPanelMessage(
   client: BotClient,
   guild: Guild,
@@ -107,13 +126,13 @@ export async function sendAktiflikPanelMessage(
     const mentionIds = missedMembers.map((member) => member.id);
     console.log(`[Aktiflik Panel] Mention IDs: ${mentionIds.join(', ')}`);
 
-    // Build mention content for extraction in button handler
-    const mentionContent = mentionIds.length > 0 
+    const summaryContent = buildAktiflikPanelSummary(sessionId, missedMembers, joinedMembers, roleMembersCount);
+    const mentionContent = mentionIds.length > 0
       ? mentionIds.map((id) => `<@${id}>`).join(' ')
       : '';
 
     await panelChannel.send({
-      content: mentionContent,
+      content: `${summaryContent}${mentionContent ? `\n${mentionContent}` : ''}`,
       embeds: [panelEmbed],
       components: [row],
       allowedMentions: { parse: ['users'], users: mentionIds },
@@ -122,6 +141,21 @@ export async function sendAktiflikPanelMessage(
     console.log(`[Aktiflik Panel] Panel mesajı gönderildi. Session ${sessionId}, Katılmayan: ${missedMembers.length}`);
   } catch (error) {
     console.error(`[Aktiflik Panel] Hata oluştu:`, error);
+
+    try {
+      const mentionIds = missedMembers.map((member) => member.id);
+      const summaryContent = buildAktiflikPanelSummary(sessionId, missedMembers, joinedMembers, roleMembersCount);
+
+      await panelChannel.send({
+        content: summaryContent,
+        components: [row],
+        allowedMentions: { parse: ['users'], users: mentionIds },
+      });
+
+      console.log(`[Aktiflik Panel] Embed olmadan panel mesajı gönderildi. Session ${sessionId}`);
+    } catch (fallbackError) {
+      console.error(`[Aktiflik Panel] Text fallback da başarısız oldu:`, fallbackError);
+    }
   }
 }
 
