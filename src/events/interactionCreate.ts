@@ -1,32 +1,7 @@
 import { Interaction, EmbedBuilder, Guild, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import type { BotEvent, BotClient } from '../types';
 import { finalizeAktiflikSession } from '../commands/aktiflik';
-import { formatMentionList } from '../utils/helpers';
-
-const INGAME_FIELD_NAMES = ['👥 Katılımcılar', '🟦 Q Atanlar', '📊 Toplam'];
-
-function updateIngameEmbed(currentEmbed: any, participants: Array<{ id: string; username: string }>, qParticipants: Array<{ id: string; username: string }>, total = 20) {
-  const preservedFields = currentEmbed.fields.filter((field: any) => !INGAME_FIELD_NAMES.includes(field.name));
-
-  return EmbedBuilder.from(currentEmbed).setFields(
-    {
-      name: '👥 Katılımcılar',
-      value: formatMentionList(participants),
-      inline: false,
-    },
-    {
-      name: '🟦 Q Atanlar',
-      value: formatMentionList(qParticipants),
-      inline: false,
-    },
-    {
-      name: '📊 Toplam',
-      value: `Katılımcı Sayısı: ${participants.length}/${total}`,
-      inline: false,
-    },
-    ...preservedFields
-  );
-}
+import { buildUpdatedIngameEmbed, syncIngameAnnouncement, getIngameTotalCapacity } from '../utils/ingameAnnouncement';
 
 const AKTIFLIK_CHANNEL_ID = '1500135056637689938';
 const FARMVER_CHANNEL_ID = '1500452813942030407';
@@ -189,8 +164,15 @@ export async function execute(interaction: Interaction): Promise<void> {
           const message = interaction.message;
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
-            const embed = updateIngameEmbed(currentEmbed, updatedParticipants, qParticipants);
+            const totalCapacity = getIngameTotalCapacity(currentEmbed);
+            const embed = buildUpdatedIngameEmbed(currentEmbed, updatedParticipants, qParticipants, totalCapacity);
             await message.edit({ embeds: [embed] });
+            await syncIngameAnnouncement(interaction.message.channel, {
+              id: sessionId,
+              message_id: session.message_id,
+              channel_id: session.channel_id,
+              last_q_announcement_message_id: session.last_q_announcement_message_id,
+            }, updatedParticipants.length, currentEmbed);
           }
 
           await interaction.editReply({
@@ -226,8 +208,15 @@ export async function execute(interaction: Interaction): Promise<void> {
           const message = interaction.message;
           const currentEmbed = message.embeds[0];
           if (currentEmbed) {
-            const embed = updateIngameEmbed(currentEmbed, updatedParticipants, qParticipants);
+            const totalCapacity = getIngameTotalCapacity(currentEmbed);
+            const embed = buildUpdatedIngameEmbed(currentEmbed, updatedParticipants, qParticipants, totalCapacity);
             await message.edit({ embeds: [embed] });
+            await syncIngameAnnouncement(interaction.message.channel, {
+              id: sessionId,
+              message_id: session.message_id,
+              channel_id: session.channel_id,
+              last_q_announcement_message_id: session.last_q_announcement_message_id,
+            }, updatedParticipants.length, currentEmbed);
           }
 
           await interaction.editReply({

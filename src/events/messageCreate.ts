@@ -1,6 +1,6 @@
 import { EmbedBuilder, Message, type TextBasedChannel } from 'discord.js';
 import type { BotClient, BotEvent } from '../types';
-import { formatMentionList } from '../utils/helpers';
+import { buildUpdatedIngameEmbed, getIngameTotalCapacity, syncIngameAnnouncement } from '../utils/ingameAnnouncement';
 
 const Q_CHANNEL_ID = '1500135056847409175';
 const LOG_CHANNEL_ID = '1500440719058276482';
@@ -11,21 +11,6 @@ function isTextBasedChannel(channel: unknown): channel is TextBasedChannel {
     && 'isTextBased' in channel
     && typeof (channel as { isTextBased?: unknown }).isTextBased === 'function'
     && (channel as { isTextBased: () => boolean }).isTextBased();
-}
-
-function getIngameTotalCapacity(embed: { fields: Array<{ name: string; value: string }> } | undefined): number {
-  const totalField = embed?.fields.find((field) => field.name === '📊 Toplam');
-  if (!totalField) {
-    return 20;
-  }
-
-  const match = totalField.value.match(/(?:Katılımcı Sayısı:\s*)?(\d+)\s*\/\s*(\d+)/i);
-  if (!match) {
-    return 20;
-  }
-
-  const capacity = Number(match[2]);
-  return Number.isFinite(capacity) && capacity > 0 ? capacity : 20;
 }
 
 export const name = 'messageCreate';
@@ -90,56 +75,16 @@ export async function execute(message: Message): Promise<void> {
       const currentEmbed = messageTarget.embeds[0];
       if (currentEmbed) {
         const totalCapacity = getIngameTotalCapacity(currentEmbed);
-        const availableSlots = Math.max(totalCapacity - updatedParticipants.length, 0);
-        const preservedFields = currentEmbed.fields.filter((field) => !['👥 Katılımcılar', '🟦 Q Atanlar', '📊 Toplam'].includes(field.name));
-        const updatedEmbed = EmbedBuilder.from(currentEmbed).setFields(
-          {
-            name: '👥 Katılımcılar',
-            value: formatMentionList(updatedParticipants),
-            inline: false,
-          },
-          {
-            name: '🟦 Q Atanlar',
-            value: formatMentionList(qParticipants),
-            inline: false,
-          },
-          {
-            name: '📊 Toplam',
-            value: `Katılımcı Sayısı: ${updatedParticipants.length}/${totalCapacity}`,
-            inline: false,
-          },
-          ...preservedFields
-        );
+        const updatedEmbed = buildUpdatedIngameEmbed(currentEmbed, updatedParticipants, qParticipants, totalCapacity);
 
         await messageTarget.edit({ embeds: [updatedEmbed] });
+        await syncIngameAnnouncement(activeChannel, session, updatedParticipants.length, currentEmbed);
       }
     }
   }
 
   if (session.active === 1 && isTextBasedChannel(activeChannel) && (qAdded || wasParticipant)) {
-    const totalCapacity = getIngameTotalCapacity(activeChannel.messages ? (await activeChannel.messages.fetch(session.message_id).catch(() => null))?.embeds[0] : undefined);
-    const availableSlots = Math.max(totalCapacity - updatedParticipants.length, 0);
-    const announcementContent = `ingamee ${availableSlots} kişilik yer var gelmek isteyen gelsin.`;
-    const announcementMessageId = session.last_q_announcement_message_id;
-
-    if (announcementMessageId) {
-      const previousAnnouncement = await activeChannel.messages.fetch(announcementMessageId).catch(() => null);
-      if (previousAnnouncement) {
-        await previousAnnouncement.edit({ content: announcementContent, allowedMentions: { parse: [] } });
-      } else {
-        const newAnnouncement = await activeChannel.send({
-          content: announcementContent,
-          allowedMentions: { parse: [] },
-        });
-        await client.db.setIngameSessionAnnouncementMessageId(session.id, newAnnouncement.id);
-      }
-    } else {
-      const newAnnouncement = await activeChannel.send({
-        content: announcementContent,
-        allowedMentions: { parse: [] },
-      });
-      await client.db.setIngameSessionAnnouncementMessageId(session.id, newAnnouncement.id);
-    }
+    await syncIngameAnnouncement(activeChannel, session, updatedParticipants.length, undefined);
   }
 
   if (logChannel && 'send' in logChannel) {
