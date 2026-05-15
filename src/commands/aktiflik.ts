@@ -23,7 +23,8 @@ function formatMemberLines(members: GuildMember[], icon: string): string {
 
   const lines: string[] = [];
   for (const member of members) {
-    const line = `${icon} <@${member.id}>`;
+    const displayName = member.displayName || member.user.username;
+    const line = `${icon} ${displayName}`;
     const candidate = [...lines, line].join('\n');
     if (candidate.length > 1000) {
       break;
