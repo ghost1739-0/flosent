@@ -217,7 +217,7 @@ const command: BotCommand = {
       const client = interaction.client as BotClient;
       const guild = interaction.guild;
       const hours = interaction.options.getInteger('saat', true);
-      const durationMs = hours * 60 * 60 * 1000;
+      const durationMs = hours * 1000;
 
       if (!guild) {
         await interaction.editReply({
@@ -241,7 +241,7 @@ const command: BotCommand = {
 
       const embed = new EmbedBuilder()
         .setTitle('✅ Aktiflik Kontrolü')
-        .setDescription(`Aşağıdaki butona tıklayarak aktifliğinizi onaylayın!\n\n**Süre:** ${hours} Saat`)
+        .setDescription(`Aşağıdaki butona tıklayarak aktifliğinizi onaylayın!\n\n**Süre:** ${hours} Saniye (TEST)`)
         .setColor('Green')
         .addFields({ name: '📊 Katilim', value: `0/${roleMembersCount}`, inline: false })
         .setFooter({ text: `Aktiflik kontrolü — ${turkishDate()}` });
@@ -262,7 +262,7 @@ const command: BotCommand = {
         message.id,
         message.channelId,
         AKTIFLIK_ROLE_ID,
-        hours * 3600,
+        hours * 1,
         interaction.user.id
       );
 
@@ -274,7 +274,7 @@ const command: BotCommand = {
       await message.edit({ components: [activeRow] });
 
       // Start timeout for auto-close
-      console.log(`[Aktiflik] Zamanlayici kuruldu: ${hours} saat (${durationMs} ms)`);
+      console.log(`[Aktiflik] Zamanlayici kuruldu: ${hours} saniye (TEST) (${durationMs} ms)`);
       setTimeout(() => {
         console.log(`[Aktiflik] Otomatik kapatma tetiklendi. Session: ${sessionId}`);
         finalizeAktiflikSession(client, guild, sessionId, message.id, message.channelId)
@@ -288,7 +288,7 @@ const command: BotCommand = {
       );
 
       await interaction.editReply({
-        content: `✅ Aktiflik kontrolü başlatıldı! Süre: ${hours} Saat.`,
+        content: `✅ Aktiflik kontrolü başlatıldı! Süre: ${hours} Saniye (TEST).`,
       });
 
     } catch (error) {
