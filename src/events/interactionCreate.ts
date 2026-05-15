@@ -151,10 +151,15 @@ export async function execute(interaction: Interaction): Promise<void> {
           .setDescription('Komut çalıştırılırken bir hata oluştu.')
           .setColor('Red');
 
-        if (interaction.replied || interaction.deferred) {
-          await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
-        } else {
-          await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+        try {
+          if (interaction.replied || interaction.deferred) {
+            await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+          } else {
+            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+          }
+        } catch (replyError) {
+          // eslint-disable-next-line no-console
+          console.error('[fallback] Hata mesajı gönderilemedi:', replyError);
         }
       }
       return;
@@ -177,7 +182,12 @@ export async function execute(interaction: Interaction): Promise<void> {
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('Ban listesi button hatası:', error);
-          await interaction.editReply({ content: '❌ Bir hata oluştu.' });
+          try {
+            await interaction.editReply({ content: '❌ Bir hata oluştu.' });
+          } catch (replyError) {
+            // eslint-disable-next-line no-console
+            console.error('[fallback] Ban listesi hata mesajı gönderilemedi:', replyError);
+          }
         }
         return;
       }
@@ -217,7 +227,12 @@ export async function execute(interaction: Interaction): Promise<void> {
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('Ban açılan button hatası:', error);
-          await interaction.editReply({ content: '❌ Bir hata oluştu.' });
+          try {
+            await interaction.editReply({ content: '❌ Bir hata oluştu.' });
+          } catch (replyError) {
+            // eslint-disable-next-line no-console
+            console.error('[fallback] Ban açılan hata mesajı gönderilemedi:', replyError);
+          }
         }
         return;
       }
@@ -279,7 +294,12 @@ export async function execute(interaction: Interaction): Promise<void> {
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('Ban kaldırma onay button hatası:', error);
-          await interaction.editReply({ content: '❌ Hata onaylanamadı.' });
+          try {
+            await interaction.editReply({ content: '❌ Onaylanamadı.' });
+          } catch (replyError) {
+            // eslint-disable-next-line no-console
+            console.error('[fallback] Ban unban hata mesajı gönderilemedi:', replyError);
+          }
         }
         return;
       }
@@ -425,9 +445,14 @@ export async function execute(interaction: Interaction): Promise<void> {
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('In-game katıl button hatası:', error);
-          await interaction.editReply({
-            content: '❌ Bir hata oluştu.',
-          });
+          try {
+            await interaction.editReply({
+              content: '❌ Bir hata oluştu.',
+            });
+          } catch (replyError) {
+            // eslint-disable-next-line no-console
+            console.error('[fallback] In-game katıl hata mesajı gönderilemedi:', replyError);
+          }
         }
         return;
       }
@@ -469,9 +494,14 @@ export async function execute(interaction: Interaction): Promise<void> {
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('In-game ayrıl button hatası:', error);
-          await interaction.editReply({
-            content: '❌ Bir hata oluştu.',
-          });
+          try {
+            await interaction.editReply({
+              content: '❌ Bir hata oluştu.',
+            });
+          } catch (replyError) {
+            // eslint-disable-next-line no-console
+            console.error('[fallback] In-game ayrıl hata mesajı gönderilemedi:', replyError);
+          }
         }
         return;
       }
@@ -578,9 +608,14 @@ export async function execute(interaction: Interaction): Promise<void> {
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('Aktiflik perm çekme button hatası:', error);
-          await interaction.editReply({
-            content: '❌ Bir hata oluştu.',
-          });
+          try {
+            await interaction.editReply({
+              content: '❌ Bir hata oluştu.',
+            });
+          } catch (replyError) {
+            // eslint-disable-next-line no-console
+            console.error('[fallback] Perm çekme hata mesajı gönderilemedi:', replyError);
+          }
         }
         return;
       }
@@ -618,9 +653,14 @@ export async function execute(interaction: Interaction): Promise<void> {
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error('Aktiflik perm onay button hatası:', error);
-          await interaction.editReply({
-            content: '❌ Bir hata oluştu.',
-          });
+          try {
+            await interaction.editReply({
+              content: '❌ Bir hata oluştu.',
+            });
+          } catch (replyError) {
+            // eslint-disable-next-line no-console
+            console.error('[fallback] Perm onay hata mesajı gönderilemedi:', replyError);
+          }
         }
         return;
       }
