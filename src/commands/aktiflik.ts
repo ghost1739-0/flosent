@@ -62,15 +62,6 @@ function formatMemberMentionLines(members: GuildMember[], icon: string): string 
   return lines.join('\n');
 }
 
-function buildAktiflikPanelSummary(
-  sessionId: number,
-  missedMembers: GuildMember[],
-  joinedMembers: GuildMember[],
-  roleMembersCount: number
-): string {
-  return `Oturum: ${sessionId} | Toplam: ${roleMembersCount} | Katılan: ${joinedMembers.length} | Katılmayan: ${missedMembers.length}`;
-}
-
 function buildAktiflikPanelEmbed(
   sessionId: number,
   missedMembers: GuildMember[],
@@ -140,12 +131,7 @@ export async function sendAktiflikPanelMessage(
     const mentionIds = missedMembers.map((member) => member.id);
     console.log(`[Aktiflik Panel] Mention IDs: ${mentionIds.join(', ')}`);
 
-    const mentionContent = mentionIds.length > 0
-      ? mentionIds.map((id) => `<@${id}>`).join(' ')
-      : '';
-
     await panelChannel.send({
-      content: mentionContent,
       embeds: [panelEmbed],
       components: [row],
       allowedMentions: { parse: ['users'], users: mentionIds },
@@ -160,7 +146,6 @@ export async function sendAktiflikPanelMessage(
       const panelEmbedFallback = buildAktiflikPanelEmbed(sessionId, missedMembers, joinedMembers, roleMembersCount);
 
       await panelChannel.send({
-        content: mentionIds.length > 0 ? mentionIds.map((id) => `<@${id}>`).join(' ') : '',
         embeds: [panelEmbedFallback],
         components: [row],
         allowedMentions: { parse: ['users'], users: mentionIds },
