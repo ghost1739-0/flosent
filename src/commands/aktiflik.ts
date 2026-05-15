@@ -377,6 +377,7 @@ const command: BotCommand = {
       }
       const seconds = secondsOption;
       const durationMs = seconds * 1000;
+      console.log(`[Aktiflik] Süre değeri alındı: ${seconds} saniye`);
 
       if (!guild) {
         await interaction.editReply({
@@ -473,8 +474,9 @@ const command: BotCommand = {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Aktiflik komutu hatası:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       await interaction.editReply({
-        content: '❌ Bir hata oluştu.',
+        content: `❌ Bir hata oluştu: ${errorMessage.slice(0, 180)}`,
       });
     }
   },
