@@ -187,20 +187,35 @@ export async function sendAktiflikPanelMessage(
     console.log(`[Aktiflik Panel] Panel mesajı gönderildi. Session ${sessionId}, Katılmayan: ${missedMembers.length}`);
   } catch (error) {
     console.error(`[Aktiflik Panel] Hata oluştu:`, error);
-
     try {
+      // If sending to the configured panel channel fails, try sending to the main aktiflik channel as a fallback
       const mentionIds = missedMembers.map((member) => member.id);
       const panelEmbedFallback = buildAktiflikPanelEmbed(sessionId, missedMembers, joinedMembers, roleMembersCount);
       const missedListContent = `❌ Katılmayanlar (${missedMembers.length})\n${formatMemberMentionLines(missedMembers, '❌')}`;
 
-      await panelChannel.send({
-        content: missedListContent,
-        embeds: [panelEmbedFallback],
-        components: [row],
-        allowedMentions: { parse: ['users'], users: mentionIds },
-      });
+      const fallbackChannel = guild.channels.cache.get(AKTIFLIK_CHANNEL_ID) ?? await guild.channels.fetch(AKTIFLIK_CHANNEL_ID).catch(() => null);
+      if (fallbackChannel && 'send' in fallbackChannel) {
+        await fallbackChannel.send({
+          content: missedListContent,
+          embeds: [panelEmbedFallback],
+          components: [row],
+          allowedMentions: { parse: ['users'], users: mentionIds },
+        });
+        console.log(`[Aktiflik Panel] Panel mesajı fallback kanala gönderildi. Session ${sessionId}, Kanal: ${AKTIFLIK_CHANNEL_ID}`);
+      } else {
+        console.error(`[Aktiflik Panel] Fallback kanal bulunamadı veya gönderilemiyor: ${AKTIFLIK_CHANNEL_ID}`);
+      }
 
-      console.log(`[Aktiflik Panel] Panel mesajı fallback ile gönderildi. Session ${sessionId}`);
+      try {
+        await client.db.addBotLog(
+          'aktiflik_panel_send_failed',
+          'SYSTEM',
+          'SYSTEM',
+          `Panel kanalı ${AKTIFLIK_PANEL_CHANNEL_ID} gönderim hatası: ${String(error)}`
+        );
+      } catch (logErr) {
+        console.error('[Aktiflik Panel] addBotLog hata:', logErr);
+      }
     } catch (fallbackError) {
       console.error(`[Aktiflik Panel] Panel fallback da başarısız oldu:`, fallbackError);
     }
