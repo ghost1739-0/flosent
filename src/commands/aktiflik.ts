@@ -107,8 +107,13 @@ export async function sendAktiflikPanelMessage(
     const mentionIds = missedMembers.map((member) => member.id);
     console.log(`[Aktiflik Panel] Mention IDs: ${mentionIds.join(', ')}`);
 
+    // Build mention content for extraction in button handler
+    const mentionContent = mentionIds.length > 0 
+      ? mentionIds.map((id) => `<@${id}>`).join(' ')
+      : '';
+
     await panelChannel.send({
-      content: '',
+      content: mentionContent,
       embeds: [panelEmbed],
       components: [row],
       allowedMentions: { parse: ['users'], users: mentionIds },
@@ -238,6 +243,22 @@ const command: BotCommand = {
       if (!guild) {
         await interaction.editReply({
           content: '❌ Bu komut sunucuda kullanılabilir.',
+        });
+        return;
+      }
+
+      // Check if user has the required role for aktiflik
+      const member = interaction.member;
+      if (!member || !('roles' in member)) {
+        await interaction.editReply({
+          content: '❌ Üye bilgileri alınamadı.',
+        });
+        return;
+      }
+
+      if (!(member.roles as any).cache.has(AKTIFLIK_ROLE_ID)) {
+        await interaction.editReply({
+          content: '❌ Bu komutu kullanmak için gerekli role sahip değilsiniz. Sadece <@&' + AKTIFLIK_ROLE_ID + '> sahip üyeler bu komutu çalıştırabilir.',
         });
         return;
       }

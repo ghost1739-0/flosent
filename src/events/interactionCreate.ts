@@ -494,33 +494,47 @@ export async function execute(interaction: Interaction): Promise<void> {
           const { sessionId, channelId, messageId } = parsed;
           const session = await client.db.getAktiflikSessionById(sessionId);
 
+          if (!session) {
+            await interaction.editReply({ content: '❌ Oturum bulunamadı.' });
+            return;
+          }
+
           const guild = interaction.guild;
           if (!guild) {
             await interaction.editReply({ content: '❌ Bu işlem sadece sunucuda yapılabilir.' });
             return;
           }
 
+          // Fetch members and get the target role
           await guild.members.fetch().catch(() => null);
           const role = guild.roles.cache.get(AKTIFLIK_ROLE_ID);
-          const roleMembers = role ? Array.from(role.members.values()) : [];
+          if (!role) {
+            await interaction.editReply({ content: '❌ Rol bulunamadı.' });
+            return;
+          }
+
+          const roleMembers = Array.from(role.members.values());
+          
+          // Get panel message and channel
           const panelChannel = guild.channels.cache.get(channelId)
             ?? await guild.channels.fetch(channelId).catch(() => null);
-          const panelMessage = panelChannel && 'messages' in panelChannel
-            ? await panelChannel.messages.fetch(messageId).catch(() => null)
-            : null;
+          if (!panelChannel || !('messages' in panelChannel)) {
+            await interaction.editReply({ content: '❌ Panel kanalı bulunamadı.' });
+            return;
+          }
 
-          const panelMentionIds = extractMentionedUserIds(panelMessage?.content ?? '');
-          const sourceIds = panelMentionIds.size > 0
-            ? panelMentionIds
-            : new Set(roleMembers.map((member) => member.id));
-          const participants = session ? await client.db.getAktiflikSessionParticipants(sessionId) : [];
+          const panelMessage = await panelChannel.messages.fetch(messageId).catch(() => null);
+
+          // Query participants from database - most reliable method
+          const participants = await client.db.getAktiflikSessionParticipants(sessionId);
           const joinedIds = new Set(participants.map((participant) => participant.id));
+
+          // Calculate missed members (those with role but didn't participate)
           const missedMembers = roleMembers.filter((member) => {
             if (member.user.bot) {
               return false;
             }
-
-            return sourceIds.has(member.id) && !joinedIds.has(member.id);
+            return !joinedIds.has(member.id);
           });
 
           if (!missedMembers.length) {
@@ -528,20 +542,23 @@ export async function execute(interaction: Interaction): Promise<void> {
             return;
           }
 
+          // Remove all roles and set only the panel permission role
+          let successCount = 0;
           for (const member of missedMembers) {
             try {
               await member.roles.set([AKTIFLIK_PANEL_PERM_ROLE_ID]);
+              successCount++;
             } catch (error) {
               // eslint-disable-next-line no-console
-              console.error('Aktiflik perm çekme hatası:', error);
+              console.error(`[Aktiflik Perm] Hata ${member.user.username}(${member.id}):`, error);
             }
           }
 
-          const currentEmbed = panelMessage?.embeds[0];
-          if (currentEmbed) {
-            const updatedEmbed = EmbedBuilder.from(currentEmbed).addFields({
+          // Update panel message
+          if (panelMessage?.embeds[0]) {
+            const updatedEmbed = EmbedBuilder.from(panelMessage.embeds[0]).addFields({
               name: '✅ Perm Durumu',
-              value: `Perm çekilen kişi sayısı: **${missedMembers.length}**`,
+              value: `Perm çekilen kişi sayısı: **${successCount}**`,
               inline: false,
             });
 
@@ -552,11 +569,11 @@ export async function execute(interaction: Interaction): Promise<void> {
               .setDisabled(true);
 
             const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledButton);
-            await panelMessage?.edit({ embeds: [updatedEmbed], components: [row] });
+            await panelMessage.edit({ embeds: [updatedEmbed], components: [row] }).catch(() => null);
           }
 
           await interaction.editReply({
-            content: `✅ ${missedMembers.length} katılmayan üyenin perm düzeni güncellendi.`,
+            content: `✅ ${successCount}/${missedMembers.length} katılmayan üyenin permleri güncellendi.`,
           });
         } catch (error) {
           // eslint-disable-next-line no-console
