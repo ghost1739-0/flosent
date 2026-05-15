@@ -11,6 +11,11 @@ type IngameEmbedLike = {
   fields: Array<{ name: string; value: string }>;
 };
 
+type IngameStatus = {
+  totalCapacity: number;
+  participantCount: number;
+};
+
 export function getIngameTotalCapacity(embed: IngameEmbedLike | undefined): number {
   const totalField = embed?.fields.find((field) => field.name === '📊 Toplam');
   if (!totalField) {
@@ -26,6 +31,16 @@ export function getIngameTotalCapacity(embed: IngameEmbedLike | undefined): numb
   return Number.isFinite(capacity) && capacity > 0 ? capacity : 20;
 }
 
+export function getIngameStatus(embed: IngameEmbedLike | undefined): IngameStatus {
+  const totalCapacity = getIngameTotalCapacity(embed);
+  const participantField = embed?.fields.find((field) => field.name === '👥 Katılımcılar');
+  const participantCount = participantField && participantField.value.trim() !== 'Yok'
+    ? participantField.value.split('\n').filter((line) => line.trim().length > 0).length
+    : 0;
+
+  return { totalCapacity, participantCount };
+}
+
 export function getIngameAnnouncementContent(totalCapacity: number, participantCount: number): string {
   const availableSlots = Math.max(totalCapacity - participantCount, 0);
   return `ingamee ${availableSlots} kişilik yer var gelmek isteyen gelsin.`;
@@ -34,14 +49,13 @@ export function getIngameAnnouncementContent(totalCapacity: number, participantC
 export async function syncIngameAnnouncement(
   channel: any,
   session: IngameSessionLike,
-  participantCount: number,
   currentEmbed?: IngameEmbedLike
 ): Promise<void> {
   if (!channel || !('messages' in channel) || !('send' in channel)) {
     return;
   }
 
-  const totalCapacity = getIngameTotalCapacity(currentEmbed);
+  const { totalCapacity, participantCount } = getIngameStatus(currentEmbed);
   const announcementContent = getIngameAnnouncementContent(totalCapacity, participantCount);
 
   if (session.last_q_announcement_message_id) {

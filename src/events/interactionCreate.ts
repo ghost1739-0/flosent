@@ -172,7 +172,7 @@ export async function execute(interaction: Interaction): Promise<void> {
               message_id: session.message_id,
               channel_id: session.channel_id,
               last_q_announcement_message_id: session.last_q_announcement_message_id,
-            }, updatedParticipants.length, currentEmbed);
+            }, embed);
           }
 
           await interaction.editReply({
@@ -216,7 +216,7 @@ export async function execute(interaction: Interaction): Promise<void> {
               message_id: session.message_id,
               channel_id: session.channel_id,
               last_q_announcement_message_id: session.last_q_announcement_message_id,
-            }, updatedParticipants.length, currentEmbed);
+            }, embed);
           }
 
           await interaction.editReply({
