@@ -265,18 +265,6 @@ const command: BotCommand = {
         components: [row],
       });
 
-      // Send DM to members of the role
-      if (roleMembers) {
-        for (const [id, member] of roleMembers) {
-          if (member.user.bot) continue;
-          try {
-            await member.send('aktiflik tikle yoksa sana bb');
-          } catch (dmErr) {
-            // Silently ignore DM errors
-          }
-        }
-      }
-
       const sessionId = await client.db.createAktiflikSession(
         message.id,
         message.channelId,
